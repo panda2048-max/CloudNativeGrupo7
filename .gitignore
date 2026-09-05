@@ -1,0 +1,3 @@
+# Distribucion de Keycloak (herramienta externa, no es codigo del proyecto).
+# Se descarga localmente para correr el Identity Provider en desarrollo.
+/keycloak/

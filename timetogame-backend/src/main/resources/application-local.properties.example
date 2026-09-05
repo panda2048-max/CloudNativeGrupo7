@@ -1,0 +1,4 @@
+# Copiar como application-local.properties (gitignorado) y completar con
+# valores reales. Nunca versionar el archivo real, solo esta plantilla.
+DB_USERNAME=timetogame
+DB_PASSWORD=changeme

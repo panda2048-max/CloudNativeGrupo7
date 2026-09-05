@@ -1,66 +1,68 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { login as loginRequest } from "../api/authApi";
 import { onUnauthorized } from "../api/httpClient";
-import { decodeJwtPayload, isTokenExpired } from "./jwt";
-import { clearStoredToken, getStoredToken, setStoredToken } from "./tokenStorage";
+import { extractRealmRoles } from "./jwt";
+import { userManager } from "./oidcUserManager";
 
 const AuthContext = createContext(null);
 
-function buildUserFromToken(token) {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return null;
+function toAuthState(oidcUser) {
+  if (!oidcUser || oidcUser.expired) return { user: null, idToken: null, accessToken: null };
+
   return {
-    username: payload.sub,
-    roles: payload.roles ?? [],
+    user: {
+      username: oidcUser.profile.preferred_username ?? oidcUser.profile.sub,
+      roles: extractRealmRoles(oidcUser.access_token),
+    },
+    // Dos tokens distintos, con proposito distinto: el ID Token identifica
+    // a la persona frente al frontend; el Access Token es el unico que
+    // viaja al backend como credencial de recurso.
+    idToken: oidcUser.id_token,
+    accessToken: oidcUser.access_token,
   };
 }
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const [{ user, accessToken }, setState] = useState({ user: null, idToken: null, accessToken: null });
   const [initializing, setInitializing] = useState(true);
   const [sessionMessage, setSessionMessage] = useState(null);
 
-  const logout = (message) => {
-    clearStoredToken();
-    setToken(null);
-    setUser(null);
-    if (message) setSessionMessage(message);
-  };
-
   useEffect(() => {
-    const stored = getStoredToken();
-    if (stored && !isTokenExpired(stored)) {
-      setToken(stored);
-      setUser(buildUserFromToken(stored));
-    } else if (stored) {
-      clearStoredToken();
-    }
-    setInitializing(false);
+    userManager
+      .getUser()
+      .then((oidcUser) => setState(toAuthState(oidcUser)))
+      .finally(() => setInitializing(false));
+
+    const onLoaded = (oidcUser) => setState(toAuthState(oidcUser));
+    const onUnloaded = () => setState(toAuthState(null));
+
+    userManager.events.addUserLoaded(onLoaded);
+    userManager.events.addUserUnloaded(onUnloaded);
+    userManager.events.addSilentRenewError(() => {
+      setSessionMessage("No se pudo renovar la sesion. Inicia sesion nuevamente.");
+    });
+
+    return () => {
+      userManager.events.removeUserLoaded(onLoaded);
+      userManager.events.removeUserUnloaded(onUnloaded);
+    };
   }, []);
 
   useEffect(() => {
     onUnauthorized(() => {
-      logout("Tu sesion expiro o no es valida. Inicia sesion nuevamente.");
+      setSessionMessage("Tu sesion expiro o no es valida. Inicia sesion nuevamente.");
+      userManager.removeUser();
     });
   }, []);
 
-  const login = async (username, password) => {
-    const response = await loginRequest(username, password);
-    setStoredToken(response.token);
-    setToken(response.token);
-    setUser({ username: response.username, roles: response.roles });
-    setSessionMessage(null);
-    return response;
-  };
-
+  const login = (redirectTo) => userManager.signinRedirect({ state: { redirectTo } });
+  const logout = () => userManager.signoutRedirect();
   const hasRole = (role) => user?.roles?.includes(role) ?? false;
 
   const value = useMemo(
     () => ({
-      token,
       user,
-      isAuthenticated: Boolean(token),
+      accessToken,
+      isAuthenticated: Boolean(user),
       initializing,
       sessionMessage,
       clearSessionMessage: () => setSessionMessage(null),
@@ -68,7 +70,7 @@ export function AuthProvider({ children }) {
       logout,
       hasRole,
     }),
-    [token, user, initializing, sessionMessage]
+    [user, accessToken, initializing, sessionMessage]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

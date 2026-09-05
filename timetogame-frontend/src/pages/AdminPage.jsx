@@ -7,7 +7,7 @@ import { AdminVideojuegosSection } from "./admin/AdminVideojuegosSection";
 export function AdminPage() {
   const { hasRole } = useAuth();
   const [generos, setGeneros] = useState([]);
-  const isAdmin = hasRole("ROLE_ADMIN");
+  const isAdmin = hasRole("ADMIN");
 
   return (
     <section className="page">

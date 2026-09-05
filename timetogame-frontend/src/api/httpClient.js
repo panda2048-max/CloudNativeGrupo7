@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "../config";
-import { getStoredToken } from "../auth/tokenStorage";
+import { getAccessToken } from "../auth/oidcUserManager";
 
 export class ApiError extends Error {
   constructor(status, message, details) {
@@ -35,7 +35,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
 
   if (auth) {
-    const token = getStoredToken();
+    const token = await getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 

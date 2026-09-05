@@ -1,3 +1,7 @@
+// Decodifica el payload de un JWT solo para lectura en la UI (roles,
+// usuario). No es una validacion de firma: la unica validacion que importa
+// (firma, issuer, audience, expiracion) la hace el backend como Resource
+// Server. Aqui es unicamente para decidir que mostrar en pantalla.
 export function decodeJwtPayload(token) {
   try {
     const base64Url = token.split(".")[1];
@@ -14,8 +18,7 @@ export function decodeJwtPayload(token) {
   }
 }
 
-export function isTokenExpired(token) {
-  const payload = decodeJwtPayload(token);
-  if (!payload?.exp) return true;
-  return Date.now() >= payload.exp * 1000;
+export function extractRealmRoles(accessToken) {
+  const payload = decodeJwtPayload(accessToken);
+  return payload?.realm_access?.roles ?? [];
 }

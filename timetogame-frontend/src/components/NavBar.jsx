@@ -1,14 +1,8 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export function NavBar() {
   const { isAuthenticated, user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
 
   return (
     <nav className="navbar">
@@ -27,7 +21,7 @@ export function NavBar() {
             <span className="navbar__user">
               {user?.username} ({user?.roles?.join(", ")})
             </span>
-            <button type="button" onClick={handleLogout}>
+            <button type="button" onClick={logout}>
               Cerrar sesion
             </button>
           </>
