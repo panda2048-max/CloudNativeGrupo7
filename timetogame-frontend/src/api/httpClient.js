@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "../config";
-import { getAccessToken } from "../auth/oidcUserManager";
+import { getAccessToken } from "../auth/msalConfig";
 
 export class ApiError extends Error {
   constructor(status, message, details) {

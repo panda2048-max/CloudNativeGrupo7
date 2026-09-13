@@ -1,0 +1,25 @@
+# Copiar a /etc/systemd/system/timetogame-backend.service en la EC2 del
+# backend, reemplazar los valores <ENTRE_CORCHETES> y luego:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now timetogame-backend
+[Unit]
+Description=TimeToGame backend (Spring Boot)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/timetogame-backend
+ExecStart=/usr/bin/java -jar target/Timetogame-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=5
+
+Environment=DB_URL=jdbc:mysql://localhost:3306/timetogame?createDatabaseIfNotExist=true
+Environment=DB_USERNAME=timetogame
+Environment=DB_PASSWORD=<PASSWORD_MYSQL>
+Environment=OIDC_ISSUER_URI=http://<IP_O_DNS_PUBLICA_BACKEND>:8080/realms/timetogame
+Environment=OIDC_AUDIENCE=timetogame-api
+Environment=CORS_ALLOWED_ORIGIN=http://<DNS_PUBLICO_FRONTEND>
+
+[Install]
+WantedBy=multi-user.target

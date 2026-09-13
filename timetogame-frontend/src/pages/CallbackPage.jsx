@@ -1,28 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { userManager } from "../auth/oidcUserManager";
+import { useMsal } from "@azure/msal-react";
+import { EventType } from "@azure/msal-browser";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { StatusMessage } from "../components/StatusMessage";
 
 export function CallbackPage() {
+  const { instance } = useMsal();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
-  const startedRef = useRef(false);
 
   useEffect(() => {
-    // El code de Authorization Code es de un solo uso: React StrictMode
-    // monta los efectos dos veces en desarrollo, y sin esta guarda el
-    // segundo intento reutiliza un code ya canjeado y Keycloak lo rechaza.
-    if (startedRef.current) return;
-    startedRef.current = true;
+    // MsalProvider ya procesa la respuesta del redirect por su cuenta; aqui
+    // solo escuchamos el resultado para decidir a donde navegar (el
+    // "redirectTo" original viaja en el parametro "state" del login).
+    const callbackId = instance.addEventCallback((event) => {
+      if (event.eventType === EventType.LOGIN_SUCCESS) {
+        navigate(event.payload?.state || "/panel", { replace: true });
+      }
+      if (event.eventType === EventType.LOGIN_FAILURE) {
+        setError(event.error?.message ?? "Error desconocido");
+      }
+    });
 
-    userManager
-      .signinRedirectCallback()
-      .then((user) => {
-        navigate(user.state?.redirectTo ?? "/panel", { replace: true });
-      })
-      .catch((err) => setError(err.message));
-  }, [navigate]);
+    return () => {
+      if (callbackId) instance.removeEventCallback(callbackId);
+    };
+  }, [instance, navigate]);
 
   return (
     <section className="page">

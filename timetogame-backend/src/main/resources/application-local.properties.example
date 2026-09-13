@@ -2,3 +2,12 @@
 # valores reales. Nunca versionar el archivo real, solo esta plantilla.
 DB_USERNAME=timetogame
 DB_PASSWORD=changeme
+
+# Microsoft Entra ID (Azure AD) - App registration "timetogame-api".
+# OIDC_AUDIENCE es el Client ID (GUID) del recurso, NO "api://<client-id>":
+# para un scope personalizado, asi es como Azure AD llena el claim "aud" en
+# tokens v2.0. Ademas, el manifiesto de "timetogame-api" debe tener
+# api.requestedAccessTokenVersion = 2, o Azure emite tokens v1.0 cuyo iss no
+# coincide con la URL de abajo.
+OIDC_ISSUER_URI=https://login.microsoftonline.com/<TENANT_ID>/v2.0
+OIDC_AUDIENCE=<CLIENT_ID_API>

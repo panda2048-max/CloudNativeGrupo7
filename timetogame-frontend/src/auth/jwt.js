@@ -18,7 +18,10 @@ export function decodeJwtPayload(token) {
   }
 }
 
-export function extractRealmRoles(accessToken) {
+// Azure AD (Entra ID) entrega los App roles asignados al usuario en un
+// claim "roles" plano en el access token, a diferencia del claim anidado
+// "realm_access.roles" que usa Keycloak.
+export function extractRoles(accessToken) {
   const payload = decodeJwtPayload(accessToken);
-  return payload?.realm_access?.roles ?? [];
+  return payload?.roles ?? [];
 }

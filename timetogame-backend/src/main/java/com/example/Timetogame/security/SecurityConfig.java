@@ -25,9 +25,10 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Backend como OAuth2 Resource Server puro: no emite tokens ni conoce
- * contrasenas. Confia unicamente en el Identity Provider (Keycloak) para
- * autenticar; aqui solo se valida la firma, el issuer, la audiencia, la
- * expiracion, y se mapean los roles del realm a authorities de Spring.
+ * contrasenas. Confia unicamente en el Identity Provider (Microsoft Entra
+ * ID / Azure AD) para autenticar; aqui solo se valida la firma, el issuer,
+ * la audiencia, la expiracion, y se mapean los App roles a authorities de
+ * Spring.
  */
 @Configuration
 @EnableWebSecurity
@@ -64,7 +65,7 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(new KeycloakRealmRoleConverter());
+        converter.setJwtGrantedAuthoritiesConverter(new AzureAdRoleConverter());
         return converter;
     }
 
