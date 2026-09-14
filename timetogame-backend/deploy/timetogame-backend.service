@@ -1,10 +1,11 @@
 # Copiar a /etc/systemd/system/timetogame-backend.service en la EC2 del
-# backend, reemplazar los valores <ENTRE_CORCHETES> y luego:
+# backend, reemplazar los valores <ENTRE_CORCHETES> (DB en RDS, dominio del
+# frontend) y luego:
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now timetogame-backend
 [Unit]
 Description=TimeToGame backend (Spring Boot)
-After=network.target mysql.service
+After=network.target
 
 [Service]
 Type=simple
@@ -14,11 +15,16 @@ ExecStart=/usr/bin/java -jar target/Timetogame-0.0.1-SNAPSHOT.jar
 Restart=on-failure
 RestartSec=5
 
-Environment=DB_URL=jdbc:mysql://localhost:3306/timetogame?createDatabaseIfNotExist=true
+Environment=DB_URL=jdbc:mysql://<ENDPOINT_RDS>:3306/timetogame?createDatabaseIfNotExist=true
 Environment=DB_USERNAME=timetogame
-Environment=DB_PASSWORD=<PASSWORD_MYSQL>
-Environment=OIDC_ISSUER_URI=http://<IP_O_DNS_PUBLICA_BACKEND>:8080/realms/timetogame
-Environment=OIDC_AUDIENCE=timetogame-api
+Environment=DB_PASSWORD=<PASSWORD_MASTER_RDS>
+
+# Microsoft Entra ID (Azure AD) - mismo App registration que en desarrollo
+# local, estos valores NO cambian entre ambientes.
+Environment=OIDC_ISSUER_URI=https://login.microsoftonline.com/e199e31e-ed32-476b-983e-152fa84d6507/v2.0
+Environment=OIDC_AUDIENCE=3aea2387-eabd-41de-87da-1503cf447475
+
+# Origen del frontend en produccion (EC2 con Nginx, Fase 2).
 Environment=CORS_ALLOWED_ORIGIN=http://<DNS_PUBLICO_FRONTEND>
 
 [Install]
