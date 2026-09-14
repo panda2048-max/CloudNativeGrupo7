@@ -7,9 +7,6 @@ Entra ID / Azure AD).
 ```
 timetogame-frontend/   SPA en React (Vite), login con MSAL
 timetogame-backend/    API REST en Spring Boot (Resource Server OAuth2)
-identity-provider/     Setup de Keycloak usado en una iteracion anterior;
-                        superado por Microsoft Entra ID (ver seccion
-                        Autenticacion mas abajo). Se conserva como referencia.
 ```
 
 ## Autenticacion (Microsoft Entra ID / Azure AD)
