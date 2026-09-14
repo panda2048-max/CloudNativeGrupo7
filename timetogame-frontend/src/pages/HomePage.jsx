@@ -22,18 +22,6 @@ export function HomePage() {
           </Link>
         )}
       </div>
-
-      <div className="home__hint">
-        <p>Usuarios de prueba:</p>
-        <ul>
-          <li>
-            <strong>user / user123</strong> - lectura autenticada (rol USER)
-          </li>
-          <li>
-            <strong>admin / admin123</strong> - lectura y administracion (rol ADMIN)
-          </li>
-        </ul>
-      </div>
     </section>
   );
 }

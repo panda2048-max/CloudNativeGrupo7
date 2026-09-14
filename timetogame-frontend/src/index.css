@@ -101,13 +101,6 @@ body {
   margin: 1.5rem 0;
 }
 
-.home__hint {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
 button,
 .button {
   display: inline-block;
