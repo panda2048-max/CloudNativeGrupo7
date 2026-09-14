@@ -12,7 +12,7 @@ timetogame-backend/    API REST en Spring Boot (Resource Server OAuth2)
 ## Autenticacion (Microsoft Entra ID / Azure AD)
 
 El IDaaS es Microsoft Entra ID. Se necesitan dos App registrations creados
-en https://entra.microsoft.com:
+en Azure
 
 1. **`timetogame-api`** (el backend, como recurso protegido):
    - "Expose an API" -> setear el Application ID URI (default `api://<client-id>`)
