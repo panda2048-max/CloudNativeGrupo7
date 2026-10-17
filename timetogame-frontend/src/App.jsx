@@ -8,6 +8,7 @@ import { CallbackPage } from "./pages/CallbackPage";
 import { CatalogoPage } from "./pages/CatalogoPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
+import { MensajeriaPage } from "./pages/MensajeriaPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PanelPage } from "./pages/PanelPage";
 import { VideojuegoDetallePage } from "./pages/VideojuegoDetallePage";
@@ -43,6 +44,14 @@ export function App() {
             element={
               <ProtectedRoute requiredRole="ADMIN">
                 <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mensajeria"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <MensajeriaPage />
               </ProtectedRoute>
             }
           />

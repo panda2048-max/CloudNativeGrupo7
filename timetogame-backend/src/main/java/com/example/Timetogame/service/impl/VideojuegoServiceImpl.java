@@ -2,15 +2,20 @@ package com.example.Timetogame.service.impl;
 
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.Timetogame.dto.VideojuegoDTO;
 import com.example.Timetogame.entity.Genero;
 import com.example.Timetogame.entity.Videojuego;
+import com.example.Timetogame.event.CatalogoEvent;
+import com.example.Timetogame.event.EntidadCatalogo;
+import com.example.Timetogame.event.TipoEventoCatalogo;
 import com.example.Timetogame.exception.ResourceNotFoundException;
 import com.example.Timetogame.repository.GeneroRepository;
 import com.example.Timetogame.repository.VideojuegoRepository;
+import com.example.Timetogame.security.UsuarioActualProvider;
 import com.example.Timetogame.service.VideojuegoService;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +27,8 @@ public class VideojuegoServiceImpl implements VideojuegoService {
 
     private final VideojuegoRepository videojuegoRepository;
     private final GeneroRepository generoRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final UsuarioActualProvider usuarioActualProvider;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,7 +64,9 @@ public class VideojuegoServiceImpl implements VideojuegoService {
                 .genero(genero)
                 .build();
 
-        return toDTO(videojuegoRepository.save(videojuego));
+        Videojuego guardado = videojuegoRepository.save(videojuego);
+        publicarEvento(TipoEventoCatalogo.CREADO, guardado);
+        return toDTO(guardado);
     }
 
     @Override
@@ -71,13 +80,21 @@ public class VideojuegoServiceImpl implements VideojuegoService {
         videojuego.setFechaLanzamiento(videojuegoDTO.fechaLanzamiento());
         videojuego.setGenero(genero);
 
-        return toDTO(videojuegoRepository.save(videojuego));
+        Videojuego guardado = videojuegoRepository.save(videojuego);
+        publicarEvento(TipoEventoCatalogo.ACTUALIZADO, guardado);
+        return toDTO(guardado);
     }
 
     @Override
     public void delete(Long id) {
         Videojuego videojuego = buscarEntidad(id);
         videojuegoRepository.delete(videojuego);
+        publicarEvento(TipoEventoCatalogo.ELIMINADO, videojuego);
+    }
+
+    private void publicarEvento(TipoEventoCatalogo tipo, Videojuego videojuego) {
+        eventPublisher.publishEvent(CatalogoEvent.de(tipo, EntidadCatalogo.VIDEOJUEGO, videojuego.getId(),
+                videojuego.getTitulo(), usuarioActualProvider.usuarioActual()));
     }
 
     private Videojuego buscarEntidad(Long id) {

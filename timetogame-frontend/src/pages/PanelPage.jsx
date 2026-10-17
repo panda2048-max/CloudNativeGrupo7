@@ -4,6 +4,7 @@ import { fetchVideojuego, fetchVideojuegos } from "../api/videojuegosApi";
 import { useAuth } from "../auth/AuthContext";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { StatusMessage } from "../components/StatusMessage";
+import { NotificacionesSection } from "./panel/NotificacionesSection";
 
 export function PanelPage() {
   const { user } = useAuth();
@@ -119,6 +120,8 @@ export function PanelPage() {
           </StatusMessage>
         )}
       </div>
+
+      <NotificacionesSection />
     </section>
   );
 }

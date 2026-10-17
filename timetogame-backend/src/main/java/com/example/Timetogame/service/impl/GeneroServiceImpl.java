@@ -2,13 +2,18 @@ package com.example.Timetogame.service.impl;
 
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.Timetogame.dto.GeneroDTO;
 import com.example.Timetogame.entity.Genero;
+import com.example.Timetogame.event.CatalogoEvent;
+import com.example.Timetogame.event.EntidadCatalogo;
+import com.example.Timetogame.event.TipoEventoCatalogo;
 import com.example.Timetogame.exception.ResourceNotFoundException;
 import com.example.Timetogame.repository.GeneroRepository;
+import com.example.Timetogame.security.UsuarioActualProvider;
 import com.example.Timetogame.service.GeneroService;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 public class GeneroServiceImpl implements GeneroService {
 
     private final GeneroRepository generoRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final UsuarioActualProvider usuarioActualProvider;
 
     @Override
     @Transactional(readOnly = true)
@@ -44,20 +51,30 @@ public class GeneroServiceImpl implements GeneroService {
                 .nombre(generoDTO.nombre())
                 .build();
 
-        return toDTO(generoRepository.save(genero));
+        Genero guardado = generoRepository.save(genero);
+        publicarEvento(TipoEventoCatalogo.CREADO, guardado);
+        return toDTO(guardado);
     }
 
     @Override
     public GeneroDTO update(Long id, GeneroDTO generoDTO) {
         Genero genero = buscarEntidad(id);
         genero.setNombre(generoDTO.nombre());
-        return toDTO(generoRepository.save(genero));
+        Genero guardado = generoRepository.save(genero);
+        publicarEvento(TipoEventoCatalogo.ACTUALIZADO, guardado);
+        return toDTO(guardado);
     }
 
     @Override
     public void delete(Long id) {
         Genero genero = buscarEntidad(id);
         generoRepository.delete(genero);
+        publicarEvento(TipoEventoCatalogo.ELIMINADO, genero);
+    }
+
+    private void publicarEvento(TipoEventoCatalogo tipo, Genero genero) {
+        eventPublisher.publishEvent(CatalogoEvent.de(tipo, EntidadCatalogo.GENERO, genero.getId(),
+                genero.getNombre(), usuarioActualProvider.usuarioActual()));
     }
 
     private Genero buscarEntidad(Long id) {

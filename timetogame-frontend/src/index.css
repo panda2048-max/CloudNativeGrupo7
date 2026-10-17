@@ -291,3 +291,55 @@ button:disabled {
 .admin-section {
   margin-bottom: 2.5rem;
 }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.form--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+}
+
+.tag--creado {
+  background: #e7f6ec;
+}
+
+.tag--actualizado {
+  background: #e8f0fb;
+}
+
+.tag--eliminado {
+  background: #fdecec;
+}
+
+.cell-wrap {
+  max-width: 420px;
+  word-break: break-word;
+}

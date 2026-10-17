@@ -1,5 +1,9 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 
+// Microservicio administrador de RabbitMQ (timetogame-rabbitmq-admin).
+export const RABBIT_ADMIN_API_URL =
+  import.meta.env.VITE_RABBIT_ADMIN_API_URL ?? "http://localhost:8001/api/admin";
+
 // Microsoft Entra ID (Azure AD). TENANT_ID y CLIENT_ID_SPA salen del App
 // registration "timetogame-spa"; API_SCOPE es el scope expuesto por el App
 // registration "timetogame-api" (Expose an API > Add a scope).

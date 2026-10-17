@@ -1,0 +1,13 @@
+# Copiar como application-local.properties (gitignorado) y completar con
+# valores reales. Nunca versionar el archivo real, solo esta plantilla.
+
+# Microsoft Entra ID (Azure AD) - App registration "timetogame-api".
+# OIDC_AUDIENCE es el Client ID (GUID) del recurso, NO "api://<client-id>".
+OIDC_ISSUER_URI=https://login.microsoftonline.com/<TENANT_ID>/v2.0
+OIDC_AUDIENCE=<CLIENT_ID_API>
+
+# Solo si el broker no es el local con guest/guest.
+#RABBITMQ_HOST=localhost
+#RABBITMQ_USERNAME=guest
+#RABBITMQ_PASSWORD=guest
+#RABBITMQ_MANAGEMENT_URL=http://localhost:15672

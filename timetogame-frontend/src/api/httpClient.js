@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../config";
+import { API_BASE_URL, RABBIT_ADMIN_API_URL } from "../config";
 import { getAccessToken } from "../auth/msalConfig";
 
 export class ApiError extends Error {
@@ -31,7 +31,7 @@ function defaultMessageFor(status) {
   }
 }
 
-async function request(path, { method = "GET", body, auth = true } = {}) {
+async function request(baseUrl, path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
 
   if (auth) {
@@ -41,7 +41,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${baseUrl}${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -49,7 +49,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   } catch {
     throw new ApiError(
       0,
-      "No se pudo conectar con el backend. Verifica que este disponible."
+      "No se pudo conectar con el servicio. Verifica que este disponible."
     );
   }
 
@@ -74,9 +74,15 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   return data;
 }
 
-export const httpClient = {
-  get: (path, opts) => request(path, { ...opts, method: "GET" }),
-  post: (path, body, opts) => request(path, { ...opts, method: "POST", body }),
-  put: (path, body, opts) => request(path, { ...opts, method: "PUT", body }),
-  delete: (path, opts) => request(path, { ...opts, method: "DELETE" }),
-};
+function createHttpClient(baseUrl) {
+  return {
+    get: (path, opts) => request(baseUrl, path, { ...opts, method: "GET" }),
+    post: (path, body, opts) => request(baseUrl, path, { ...opts, method: "POST", body }),
+    put: (path, body, opts) => request(baseUrl, path, { ...opts, method: "PUT", body }),
+    delete: (path, opts) => request(baseUrl, path, { ...opts, method: "DELETE" }),
+  };
+}
+
+export const httpClient = createHttpClient(API_BASE_URL);
+
+export const rabbitAdminClient = createHttpClient(RABBIT_ADMIN_API_URL);

@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export function NavBar() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, hasRole } = useAuth();
 
   return (
     <nav className="navbar">
@@ -14,6 +14,7 @@ export function NavBar() {
         <NavLink to="/catalogo">Catalogo</NavLink>
         {isAuthenticated && <NavLink to="/panel">Panel</NavLink>}
         {isAuthenticated && <NavLink to="/admin">Administracion</NavLink>}
+        {isAuthenticated && hasRole("ADMIN") && <NavLink to="/mensajeria">Mensajeria</NavLink>}
       </div>
       <div className="navbar__auth">
         {isAuthenticated ? (

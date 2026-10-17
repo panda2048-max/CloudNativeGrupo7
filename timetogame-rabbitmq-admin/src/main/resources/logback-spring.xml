@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Consola con el formato estandar de Spring Boot, mas un archivo dedicado para
+  el registro de auditoria que escribe AuditoriaConsumer (logger
+  AUDITORIA_TOPOLOGIA). LOG_DIR permite moverlo en el despliegue.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="LOG_DIR" value="${LOG_DIR:-logs}"/>
+
+    <appender name="AUDITORIA_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/auditoria-topologia.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/auditoria-topologia.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{ISO8601} %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="AUDITORIA_TOPOLOGIA" level="INFO">
+        <appender-ref ref="AUDITORIA_FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
