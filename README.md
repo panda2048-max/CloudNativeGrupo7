@@ -55,26 +55,36 @@ cubre como encajan entre si y como se configuran por ambiente.
 
 ## Arquitectura
 
-Hoy el frontend habla directo con el backend; la variable de configuracion
-que separa ambas capas (`API_BASE_URL`) es lo unico que hay que cambiar
-para meter un API Manager/Gateway en el medio sin tocar el codigo:
+En local el frontend habla directo con los microservicios; en AWS pasa por
+un API Gateway (HTTP API). Solo cambian `VITE_API_BASE_URL` y
+`VITE_RABBIT_ADMIN_API_URL`:
 
 ```
-Frontend (React)                       Frontend (React)
-   │  VITE_API_BASE_URL                    │  VITE_API_BASE_URL
-   ▼  = http://localhost:8000/api          ▼  = https://gateway.dominio/timetogame
-Backend (Spring Boot)                  API Manager / Gateway
-                                            │  (routing, politicas, CORS,
-                                            │   observabilidad, etc.)
-                                            ▼
-                                        Backend (Spring Boot)
+Local                                  AWS
+Frontend (React)                       Frontend (EC2, Nginx + HTTPS)
+   │  localhost:8000 / :8001              │  https://<api-id>.execute-api.<region>.amazonaws.com
+   ▼                                      ▼
+Backend / Admin                        API Gateway + JWT authorizer (Entra ID)
+                                          │  /api/admin/*  -> EC2 :8001 (admin)
+                                          │  /api/public/* -> EC2 :8000 (sin authorizer)
+                                          │  resto         -> EC2 :8000 (backend)
+                                          ▼
+                                       EC2 backend: backend, admin y cluster RabbitMQ (Docker)
 ```
 
-El backend valida cada request de forma independiente (firma, issuer,
-audience, expiracion y rol/scope contra Microsoft Entra ID) como OAuth2
-Resource Server: pasar por un gateway no reemplaza esa autorizacion, solo se
-le suman responsabilidades de borde (routing, politicas, observabilidad...)
-encima.
+Rutas del API Gateway: `GET|POST|PUT|DELETE|PATCH /{proxy+}` y
+`GET|POST|DELETE /api/admin/{proxy+}` llevan el JWT authorizer `entra-id`
+(identity source `$request.header.Authorization`, issuer
+`https://login.microsoftonline.com/<TENANT_ID>/v2.0`, audience
+`<CLIENT_ID_API>`); `GET /api/public/{proxy+}` y las rutas `OPTIONS` (preflight
+CORS) no. Sin token o con un token invalido el Gateway responde 401
+`{"message":"Unauthorized"}` sin llegar a la EC2. El CORS lo resuelve Spring
+(el Gateway no tiene CORS propio).
+
+Ademas, backend y admin validan cada request de forma independiente (firma,
+issuer, audience, expiracion y rol contra Microsoft Entra ID) como OAuth2
+Resource Server: el Gateway corta en el borde lo que no trae un JWT valido y
+Spring Security autoriza por rol.
 
 ## Mensajeria asincrona (RabbitMQ)
 
