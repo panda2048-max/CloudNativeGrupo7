@@ -7,6 +7,7 @@ import {
 } from "../../api/videojuegosApi";
 import { StatusMessage, variantForStatus } from "../../components/StatusMessage";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
+import { FichaVideojuegoPanel } from "./FichaVideojuegoPanel";
 
 const emptyForm = {
   titulo: "",
@@ -25,6 +26,7 @@ export function AdminVideojuegosSection({ generos }) {
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [fichaDe, setFichaDe] = useState(null);
 
   const loadVideojuegos = () => {
     setLoading(true);
@@ -94,6 +96,7 @@ export function AdminVideojuegosSection({ generos }) {
     setFeedback(null);
     try {
       await deleteVideojuego(videojuego.id);
+      if (fichaDe?.id === videojuego.id) setFichaDe(null);
       setFeedback({ variant: "success", text: `"${videojuego.titulo}" eliminado.` });
       await loadVideojuegos();
     } catch (err) {
@@ -125,6 +128,9 @@ export function AdminVideojuegosSection({ generos }) {
                 <td>{videojuego.generoNombre}</td>
                 <td>USD {videojuego.precio}</td>
                 <td className="table__actions">
+                  <button type="button" onClick={() => setFichaDe(videojuego)}>
+                    Ficha
+                  </button>
                   <button type="button" onClick={() => startEdit(videojuego)}>
                     Editar
                   </button>
@@ -141,6 +147,10 @@ export function AdminVideojuegosSection({ generos }) {
             )}
           </tbody>
         </table>
+      )}
+
+      {fichaDe && (
+        <FichaVideojuegoPanel key={fichaDe.id} videojuego={fichaDe} onClose={() => setFichaDe(null)} />
       )}
 
       <form className="form" onSubmit={handleSubmit}>

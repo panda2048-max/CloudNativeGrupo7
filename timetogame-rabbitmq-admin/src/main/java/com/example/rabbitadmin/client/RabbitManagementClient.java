@@ -3,6 +3,7 @@ package com.example.rabbitadmin.client;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.springframework.boot.amqp.autoconfigure.RabbitProperties;
 import org.springframework.core.ParameterizedTypeReference;
@@ -23,16 +24,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @Component
 public class RabbitManagementClient {
 
-    private final RestClient restClient;
+    private final List<RestClient> nodos;
     private final String vhost;
 
     public RabbitManagementClient(RabbitAdminProperties adminProperties, RabbitProperties rabbitProperties) {
         this.vhost = rabbitProperties.getVirtualHost() == null ? "/" : rabbitProperties.getVirtualHost();
-        this.restClient = RestClient.builder()
-                .baseUrl(adminProperties.managementUrl() + "/api")
-                .defaultHeaders(headers -> headers.setBasicAuth(rabbitProperties.getUsername(),
-                        rabbitProperties.getPassword()))
-                .build();
+        this.nodos = adminProperties.managementUrls().stream()
+                .map(url -> RestClient.builder()
+                        .baseUrl(url + "/api")
+                        .defaultHeaders(headers -> headers.setBasicAuth(rabbitProperties.getUsername(),
+                                rabbitProperties.getPassword()))
+                        .build())
+                .toList();
     }
 
     public List<ColaInfo> listarColas() {
@@ -65,22 +68,33 @@ public class RabbitManagementClient {
     }
 
     private <T> List<T> obtenerLista(String uri, ParameterizedTypeReference<List<T>> tipo, Object... variables) {
-        try {
-            List<T> resultado = restClient.get().uri(uri, variables).retrieve().body(tipo);
-            return resultado == null ? List.of() : resultado;
-        } catch (ResourceAccessException e) {
-            throw new BrokerNoDisponibleException("No se pudo contactar la API de management de RabbitMQ", e);
-        }
+        List<T> resultado = conFailover(nodo -> nodo.get().uri(uri, variables).retrieve().body(tipo));
+        return resultado == null ? List.of() : resultado;
     }
 
     private <T> Optional<T> obtenerOpcional(String uri, Class<T> tipo, Object... variables) {
         try {
-            return Optional.ofNullable(restClient.get().uri(uri, variables).retrieve().body(tipo));
+            return Optional.ofNullable(conFailover(nodo -> nodo.get().uri(uri, variables).retrieve().body(tipo)));
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
-        } catch (ResourceAccessException e) {
-            throw new BrokerNoDisponibleException("No se pudo contactar la API de management de RabbitMQ", e);
         }
+    }
+
+    /**
+     * Prueba los nodos en orden y usa el primero que responda. Solo un error de
+     * red pasa al siguiente: un 404 o 401 es una respuesta valida del cluster.
+     */
+    private <T> T conFailover(Function<RestClient, T> consulta) {
+        ResourceAccessException ultimoError = null;
+        for (RestClient nodo : nodos) {
+            try {
+                return consulta.apply(nodo);
+            } catch (ResourceAccessException e) {
+                ultimoError = e;
+            }
+        }
+        throw new BrokerNoDisponibleException("No se pudo contactar la API de management de ningun nodo de RabbitMQ",
+                ultimoError);
     }
 
     public record ColaInfo(

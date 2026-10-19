@@ -12,11 +12,11 @@ import com.example.rabbitadmin.event.OperacionTopologiaEvent;
  * <pre>
  * Ruta principal:
  *   AuditoriaEventProducer --(admin.&lt;recurso&gt;.&lt;operacion&gt;)--> [topic] timetogame.admin.auditoria
- *       --(admin.#)--> [queue] timetogame.admin.auditoria.registro --> AuditoriaConsumer
+ *       --(admin.#)--> [quorum] timetogame.admin.auditoria.registro --> AuditoriaConsumer
  *
  * Dead letter (payload invalido o fallo al registrar -> basicNack sin requeue):
- *   [queue] timetogame.admin.auditoria.registro --(DLX)--> [direct] timetogame.admin.auditoria.dlx
- *       --(auditoria.dlq)--> [queue] timetogame.admin.auditoria.dlq --> AuditoriaDlqConsumer
+ *   [quorum] timetogame.admin.auditoria.registro --(DLX)--> [direct] timetogame.admin.auditoria.dlx
+ *       --(auditoria.dlq)--> [quorum] timetogame.admin.auditoria.dlq --> AuditoriaDlqConsumer
  * </pre>
  *
  * Sin cola de reintento: registrar en el log no depende de recursos externos,

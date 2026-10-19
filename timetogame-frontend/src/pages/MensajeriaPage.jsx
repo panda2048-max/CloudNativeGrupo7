@@ -35,7 +35,8 @@ export function MensajeriaPage() {
       <p>
         Administracion de colas, exchanges y bindings a traves del microservicio
         <code> timetogame-rabbitmq-admin</code>. Los recursos de la topologia del
-        sistema (<code>timetogame.catalogo.*</code>, <code>timetogame.admin.*</code>)
+        sistema (<code>timetogame.catalogo.*</code>, <code>timetogame.documentos.*</code>,{" "}
+        <code>timetogame.admin.*</code>)
         y los reservados del broker (<code>amq.*</code>) estan protegidos contra
         eliminacion.
       </p>

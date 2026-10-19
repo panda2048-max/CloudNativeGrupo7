@@ -343,3 +343,15 @@ button:disabled {
   max-width: 420px;
   word-break: break-word;
 }
+
+.ficha {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}

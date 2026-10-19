@@ -7,9 +7,10 @@ MySQL y mensajeria asincrona con RabbitMQ (colas, exchanges, reintentos y DLQ).
 ```
 timetogame-frontend/        SPA en React (Vite), login con MSAL
 timetogame-backend/         API REST del catalogo (Resource Server OAuth2) +
-                            productor/consumidores de notificaciones
+                            productores/consumidores de notificaciones y fichas
 timetogame-rabbitmq-admin/  Microservicio administrador de RabbitMQ (crear/
                             eliminar colas, exchanges y bindings) + auditoria
+infra/rabbitmq/             docker-compose del cluster RabbitMQ de 2 nodos
 ```
 
 ## Autenticacion (Microsoft Entra ID / Azure AD)
@@ -77,12 +78,30 @@ encima.
 
 ## Mensajeria asincrona (RabbitMQ)
 
-Cada microservicio tiene su propio dominio de mensajeria, con productor,
-consumidores con ACK manual, DLQ y logs. La configuracion (beans `Queue`,
-`Exchange`, `Binding`) vive en clases `@Configuration` del paquete
-`messaging.config`; los servicios de negocio no conocen RabbitMQ: publican un
-evento de aplicacion de Spring y un productor de la capa de mensajeria lo
-reenvia al broker.
+Tres casos de uso, cada uno con su cola principal, reintento diferido o DLQ,
+productor, consumidores con ACK manual y logs:
+
+| Caso de uso | Microservicio | Exchange principal | Cola | DLQ |
+|---|---|---|---|---|
+| Notificaciones de catalogo | backend | `timetogame.catalogo.events` (topic) | `timetogame.catalogo.notificaciones` | `timetogame.catalogo.notificaciones.dlq` |
+| Generacion de fichas tecnicas | backend | `timetogame.documentos` (direct) | `timetogame.documentos.fichas` | `timetogame.documentos.fichas.dlq` |
+| Auditoria de administracion | admin | `timetogame.admin.auditoria` (topic) | `timetogame.admin.auditoria.registro` | `timetogame.admin.auditoria.dlq` |
+
+Los nombres de colas, exchanges, routing keys y headers estan centralizados
+en una sola clase por microservicio (`messaging.config.TopologiaMensajeria`
+en el backend, `messaging.config.AuditoriaTopologia` en el admin). Los beans
+`Queue`, `Exchange` y `Binding` se declaran en una clase `@Configuration`
+por caso de uso (`NotificacionesMessagingConfig`,
+`DocumentosMessagingConfig`, `AuditoriaMessagingConfig`). Los servicios de
+negocio no conocen RabbitMQ: publican un evento de aplicacion de Spring y un
+productor de la capa de mensajeria lo reenvia al broker. Los consumidores se
+agrupan por dominio (`messaging.consumer.notificaciones`,
+`.documentos`, `.auditoria`) y comparten la politica de errores de
+`messaging.consumer.support` (`ReintentoDiferidoHandler`,
+`RegistroDlqHandler`, `MensajeJsonReader`).
+
+Todas las colas son **quorum**: en el cluster de 2 nodos quedan replicadas en
+ambos (ver "Cluster RabbitMQ" mas abajo).
 
 ### Notificaciones de catalogo (`timetogame-backend`)
 
@@ -94,15 +113,15 @@ VideojuegoService / GeneroService
    └─ publishEvent(CatalogoEvent)            (evento de Spring, sin RabbitMQ)
         └─ CatalogoEventProducer             (@TransactionalEventListener AFTER_COMMIT)
              └─(catalogo.<entidad>.<tipo>)─> [topic] timetogame.catalogo.events
-                  └─(catalogo.#)─> [queue] timetogame.catalogo.notificaciones
+                  └─(catalogo.#)─> [quorum] timetogame.catalogo.notificaciones
                                         └─> NotificacionCatalogoConsumer -> tabla notificaciones
 
 Error recuperable:  consumer ─> [direct] timetogame.catalogo.retry
-                                  └─> [queue] ...notificaciones.retry (TTL 5s, sin consumidores)
+                                  └─> [quorum] ...notificaciones.retry (TTL 5s, sin consumidores)
                                         └─ al expirar vuelve a la cola principal (max 3 veces)
 Error no recuperable o reintentos agotados (basicNack sin requeue):
-    [queue] ...notificaciones ─(DLX)─> [direct] timetogame.catalogo.dlx
-         └─> [queue] timetogame.catalogo.notificaciones.dlq ─> NotificacionDlqConsumer
+    [quorum] ...notificaciones ─(DLX)─> [direct] timetogame.catalogo.dlx
+         └─> [quorum] timetogame.catalogo.notificaciones.dlq ─> NotificacionDlqConsumer
                                                   └─ log ERROR + tabla mensajes_fallidos
 ```
 
@@ -112,6 +131,31 @@ Error no recuperable o reintentos agotados (basicNack sin requeue):
   publicacion se registra en el log y no se propaga al usuario.
 - El consumidor es **idempotente** (`event_id` unico): RabbitMQ entrega "al
   menos una vez", asi que una entrega duplicada se confirma sin reprocesar.
+
+### Generacion de fichas tecnicas (`timetogame-backend`)
+
+Tarea asincrona tipo "generacion de documentos": la ficha tecnica de cada
+videojuego se redacta en segundo plano y se guarda en `fichas_videojuego`.
+
+```
+Origen 1: alta/edicion/baja de un videojuego (CatalogoEvent)
+Origen 2: POST /api/videojuegos/{id}/ficha  -> 202 Accepted (SolicitudFicha)
+   └─ SolicitudFichaProducer                 (@TransactionalEventListener AFTER_COMMIT)
+        └─(ficha.generar | ficha.eliminar)─> [direct] timetogame.documentos
+             └─> [quorum] timetogame.documentos.fichas ─> FichaVideojuegoConsumer
+Reintento:  ─> [direct] timetogame.documentos.retry ─> [quorum] ...fichas.retry (TTL 5s)
+DLQ:        ─(DLX)─> [direct] timetogame.documentos.dlx ─> [quorum] timetogame.documentos.fichas.dlq
+                                                             └─> FichaDlqConsumer
+```
+
+- Exchange **direct**: cada accion tiene su routing key exacta y ambas se
+  enlazan a la misma cola de trabajo.
+- Videojuego inexistente o mensaje invalido -> DLQ sin reintentar. Error de
+  BD o conflicto de concurrencia -> reintento diferido (3 x 5 s) y luego DLQ.
+- Idempotente: la ficha guarda el id de la ultima solicitud aplicada; una
+  entrega duplicada se confirma sin regenerar.
+- `GET /api/videojuegos/{id}/ficha` la devuelve (404 mientras no exista). En
+  el frontend: **Administracion > Videojuegos > Ficha**.
 
 ### Auditoria de administracion (`timetogame-rabbitmq-admin`)
 
@@ -170,8 +214,8 @@ broker): nombres no vacios, solo caracteres seguros, sin el prefijo reservado
 y no auto-delete; `deadLetterRoutingKey` exige `deadLetterExchange` y este
 debe existir; comodines `*`/`#` rechazados en exchanges `direct`; duplicados
 -> 409. La topologia del sistema (`timetogame.catalogo.*`,
-`timetogame.admin.*`) y los recursos `amq.*` estan protegidos contra
-eliminacion (`RABBIT_ADMIN_RECURSOS_PROTEGIDOS`).
+`timetogame.documentos.*`, `timetogame.admin.*`) y los recursos `amq.*` estan
+protegidos contra eliminacion (`RABBIT_ADMIN_RECURSOS_PROTEGIDOS`).
 
 En el frontend, la pagina **Mensajeria** (solo ADMIN) usa esta API y muestra
 ademas los mensajes fallidos de la DLQ; el **Panel** muestra las
@@ -192,12 +236,16 @@ guest/guest) > Exchanges > `timetogame.catalogo.events` > *Publish message*:
    `notificaciones`), publicar un evento valido y observar en el log los
    reintentos 1/3, 2/3, 3/3 cada 5 s y el envio final a la DLQ. Si la BD
    vuelve dentro de esa ventana, el reintento lo procesa sin pasar por la DLQ.
+4. **Fichas**: en Administracion > Videojuegos > *Ficha* > *Generar ficha*
+   (202 y luego aparece la ficha). Para la DLQ, publicar en
+   `timetogame.documentos` con routing key `ficha.generar` una solicitud con
+   un `videojuegoId` inexistente.
 
 ### Pruebas
 
 ```bash
-# backend: politica de ack/nack/reintento y lectura de mensajes (sin broker)
-cd timetogame-backend && ./mvnw test -Dtest='*Consumer*Test,*Reader*Test,*Handler*Test'
+# backend: politica de ack/nack/reintento, lectura de mensajes y fichas (sin broker)
+cd timetogame-backend && ./mvnw test
 
 # admin: endpoints, validaciones y seguridad por rol (sin broker)
 cd timetogame-rabbitmq-admin && ./mvnw test -Dtest=AdminControllersTest
@@ -205,6 +253,33 @@ cd timetogame-rabbitmq-admin && ./mvnw test -Dtest=AdminControllersTest
 # admin contra un RabbitMQ real en localhost (opt-in)
 cd timetogame-rabbitmq-admin && ./mvnw test -Dtest=RabbitAdminServiceBrokerIT -Drabbit.it=true
 ```
+
+### Cluster RabbitMQ (`infra/rabbitmq`, docker-compose)
+
+En AWS el broker corre como un cluster de **2 nodos** (`rabbitmq-1`,
+`rabbitmq-2`) levantado con docker-compose en la EC2 del backend:
+
+```bash
+cd infra/rabbitmq
+cp .env.example .env            # Erlang cookie y usuario administrador
+docker compose up -d            # rabbitmq-2 arranca cuando rabbitmq-1 esta sano y se une al cluster
+docker compose exec rabbitmq-1 rabbitmqctl cluster_status
+echo -n "<pass>" | ./crear-usuario.sh timetogame-backend
+echo -n "<pass>" | ./crear-usuario.sh timetogame-admin management
+```
+
+- El cluster se forma solo (`cluster_formation.peer_discovery_backend =
+  classic_config`); ambos nodos comparten la Erlang cookie.
+- Puertos publicados solo en `127.0.0.1`: nodo 1 en 5672/15672, nodo 2 en
+  5673/15673. Backend y admin usan `RABBITMQ_ADDRESSES=localhost:5672,localhost:5673`
+  (si un nodo cae, el cliente reconecta al otro) y el admin consulta la API de
+  management de cualquiera de los dos (`RABBITMQ_MANAGEMENT_URLS`).
+- Las colas quorum se replican en ambos nodos. Con 2 nodos la mayoria es 2 de
+  2: hay replicacion pero no tolerancia a la caida de un nodo (para eso se
+  necesita un tercer nodo).
+- La UI de management se ve con un tunel SSH:
+  `ssh -i <llave>.pem -L 15672:localhost:15672 ubuntu@<ip-backend>` y luego
+  `http://localhost:15672` (pestaña *Overview* > *Nodes* muestra los dos).
 
 ## Configuracion por ambiente
 
@@ -225,9 +300,10 @@ local.
 | Origen permitido por CORS | Backend y admin | `CORS_ALLOWED_ORIGIN` |
 | Datos de conexion a la base de datos | Backend | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` |
 | URL del microservicio administrador | Frontend | `VITE_RABBIT_ADMIN_API_URL` |
-| Conexion a RabbitMQ (default localhost / guest) | Backend y admin | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, `RABBITMQ_VHOST` |
+| Conexion a RabbitMQ (default localhost:5672 / guest) | Backend y admin | `RABBITMQ_ADDRESSES` (nodos separados por coma), `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, `RABBITMQ_VHOST` |
 | Reintentos de notificaciones (default 3 y 5s) | Backend | `NOTIFICACIONES_MAX_REINTENTOS`, `NOTIFICACIONES_RETRASO_REINTENTO` |
-| API HTTP de management de RabbitMQ | Admin | `RABBITMQ_MANAGEMENT_URL` |
+| Reintentos de fichas (default 3 y 5s) | Backend | `DOCUMENTOS_MAX_REINTENTOS`, `DOCUMENTOS_RETRASO_REINTENTO` |
+| API HTTP de management de RabbitMQ (una URL por nodo) | Admin | `RABBITMQ_MANAGEMENT_URLS` |
 | Prefijos protegidos contra eliminacion | Admin | `RABBIT_ADMIN_RECURSOS_PROTEGIDOS` |
 
 Los archivos con valores locales (`.env` en el frontend,
@@ -256,3 +332,8 @@ por encima de `.env` (no hay que copiarlo).
 
 Si el broker se cae, ambos microservicios siguen respondiendo y se reconectan
 solos (y re-declaran su topologia) cuando vuelve.
+
+Si el broker local tiene colas de una version anterior declaradas como
+`classic`, el arranque falla con `PRECONDITION_FAILED - inequivalent arg
+'x-queue-type'`: borrarlas (vacias) desde la UI de management y volver a
+arrancar, los microservicios las declaran de nuevo como quorum.

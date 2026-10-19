@@ -7,7 +7,7 @@ OIDC_ISSUER_URI=https://login.microsoftonline.com/<TENANT_ID>/v2.0
 OIDC_AUDIENCE=<CLIENT_ID_API>
 
 # Solo si el broker no es el local con guest/guest.
-#RABBITMQ_HOST=localhost
+#RABBITMQ_ADDRESSES=localhost:5672
 #RABBITMQ_USERNAME=guest
 #RABBITMQ_PASSWORD=guest
-#RABBITMQ_MANAGEMENT_URL=http://localhost:15672
+#RABBITMQ_MANAGEMENT_URLS=http://localhost:15672

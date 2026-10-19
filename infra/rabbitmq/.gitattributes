@@ -1,0 +1,4 @@
+# Se ejecutan/montan en Linux: forzar LF aunque se editen en Windows.
+*.sh text eol=lf
+*.conf text eol=lf
+*.yml text eol=lf

@@ -24,15 +24,15 @@ export function MensajesFallidosSection() {
   return (
     <div className="admin-section">
       <div className="section-header">
-        <h2>Mensajes fallidos (DLQ de notificaciones)</h2>
+        <h2>Mensajes fallidos (DLQ del backend)</h2>
         <button type="button" onClick={cargar} disabled={loading}>
           Actualizar
         </button>
       </div>
       <p className="hint">
-        Mensajes que el consumidor de notificaciones no pudo procesar: rechazados
-        por invalidos, o que agotaron sus reintentos. Quedan registrados en el log
-        del backend y aqui.
+        Mensajes que los consumidores de notificaciones y de fichas no pudieron
+        procesar: rechazados por invalidos, o que agotaron sus reintentos. Quedan
+        registrados en el log del backend y aqui.
       </p>
 
       {loading && <LoadingIndicator label="Cargando mensajes fallidos..." />}
@@ -43,6 +43,7 @@ export function MensajesFallidosSection() {
           <thead>
             <tr>
               <th>Registrado</th>
+              <th>Cola origen</th>
               <th>Routing key</th>
               <th>Motivo</th>
               <th>Reintentos</th>
@@ -53,6 +54,9 @@ export function MensajesFallidosSection() {
             {mensajes.map((mensaje) => (
               <tr key={mensaje.id}>
                 <td>{new Date(mensaje.registradoEn).toLocaleString("es-CL")}</td>
+                <td>
+                  <code>{mensaje.colaOrigen ?? "-"}</code>
+                </td>
                 <td>
                   <code>{mensaje.routingKey}</code>
                 </td>
@@ -66,7 +70,7 @@ export function MensajesFallidosSection() {
             ))}
             {mensajes.length === 0 && (
               <tr>
-                <td colSpan={5}>No hay mensajes fallidos.</td>
+                <td colSpan={6}>No hay mensajes fallidos.</td>
               </tr>
             )}
           </tbody>

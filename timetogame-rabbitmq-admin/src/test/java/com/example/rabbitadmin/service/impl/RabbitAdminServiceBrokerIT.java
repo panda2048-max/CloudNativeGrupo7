@@ -51,8 +51,8 @@ class RabbitAdminServiceBrokerIT {
         connectionFactory.setPassword("guest");
 
         RabbitProperties rabbitProperties = new RabbitProperties();
-        RabbitAdminProperties adminProperties = new RabbitAdminProperties("http://localhost:15672",
-                List.of("timetogame.catalogo.", "timetogame.admin.", "amq."));
+        RabbitAdminProperties adminProperties = new RabbitAdminProperties(List.of("http://localhost:15672"),
+                List.of("timetogame.catalogo.", "timetogame.documentos.", "timetogame.admin.", "amq."));
 
         service = new RabbitAdminServiceImpl(new RabbitAdmin(connectionFactory), new RabbitTemplate(connectionFactory),
                 new RabbitManagementClient(adminProperties, rabbitProperties), adminProperties,

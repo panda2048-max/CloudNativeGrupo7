@@ -1,4 +1,4 @@
-package com.example.Timetogame.messaging.consumer.notificaciones;
+package com.example.Timetogame.messaging.consumer.support;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 import org.springframework.amqp.core.Message;
 import org.springframework.stereotype.Component;
 
-import com.example.Timetogame.event.CatalogoEvent;
 import com.example.Timetogame.messaging.exception.MensajeNoProcesableException;
 
 import jakarta.validation.ConstraintViolation;
@@ -23,31 +22,31 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Component
 @RequiredArgsConstructor
-public class CatalogoEventReader {
+public class MensajeJsonReader {
 
     private final JsonMapper jsonMapper;
     private final Validator validator;
 
-    public CatalogoEvent leer(Message message) {
-        CatalogoEvent evento;
+    public <T> T leer(Message message, Class<T> tipo) {
+        T contenido;
         try {
-            evento = jsonMapper.readValue(message.getBody(), CatalogoEvent.class);
+            contenido = jsonMapper.readValue(message.getBody(), tipo);
         } catch (JacksonException e) {
             throw new MensajeNoProcesableException("Payload JSON invalido: " + e.getOriginalMessage(), e);
         }
 
-        if (evento == null) {
+        if (contenido == null) {
             throw new MensajeNoProcesableException("El mensaje no tiene contenido");
         }
 
-        Set<ConstraintViolation<CatalogoEvent>> violaciones = validator.validate(evento);
+        Set<ConstraintViolation<T>> violaciones = validator.validate(contenido);
         if (!violaciones.isEmpty()) {
             String detalle = violaciones.stream()
                     .map(v -> v.getPropertyPath() + " " + v.getMessage())
                     .sorted()
                     .collect(Collectors.joining(", "));
-            throw new MensajeNoProcesableException("Evento invalido: " + detalle);
+            throw new MensajeNoProcesableException("Mensaje invalido (" + tipo.getSimpleName() + "): " + detalle);
         }
-        return evento;
+        return contenido;
     }
 }

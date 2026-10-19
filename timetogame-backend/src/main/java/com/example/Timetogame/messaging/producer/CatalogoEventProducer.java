@@ -8,7 +8,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.example.Timetogame.event.CatalogoEvent;
-import com.example.Timetogame.messaging.config.NotificacionesTopologia;
+import com.example.Timetogame.messaging.config.TopologiaMensajeria;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +28,9 @@ public class CatalogoEventProducer {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void publicar(CatalogoEvent evento) {
-        String routingKey = NotificacionesTopologia.routingKeyPara(evento);
+        String routingKey = TopologiaMensajeria.Catalogo.routingKeyPara(evento);
         try {
-            rabbitTemplate.convertAndSend(NotificacionesTopologia.EVENTS_EXCHANGE, routingKey, evento,
+            rabbitTemplate.convertAndSend(TopologiaMensajeria.Catalogo.EVENTS_EXCHANGE, routingKey, evento,
                     message -> {
                         message.getMessageProperties().setMessageId(evento.eventId());
                         return message;

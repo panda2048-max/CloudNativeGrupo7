@@ -19,7 +19,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Exchanges, colas y bindings del caso de uso "auditoria de la
- * administracion". Ver {@link AuditoriaTopologia} para el diagrama.
+ * administracion". Ver {@link AuditoriaTopologia} para el diagrama. Colas
+ * quorum: replicadas en los nodos del cluster.
  */
 @Configuration
 public class AuditoriaMessagingConfig {
@@ -34,6 +35,7 @@ public class AuditoriaMessagingConfig {
     @Bean
     public Queue auditoriaQueue() {
         return QueueBuilder.durable(AUDITORIA_QUEUE)
+                .quorum()
                 .deadLetterExchange(AUDITORIA_DLX)
                 .deadLetterRoutingKey(AUDITORIA_DLQ_ROUTING_KEY)
                 .build();
@@ -53,7 +55,7 @@ public class AuditoriaMessagingConfig {
 
     @Bean
     public Queue auditoriaDeadLetterQueue() {
-        return QueueBuilder.durable(AUDITORIA_DLQ).build();
+        return QueueBuilder.durable(AUDITORIA_DLQ).quorum().build();
     }
 
     @Bean

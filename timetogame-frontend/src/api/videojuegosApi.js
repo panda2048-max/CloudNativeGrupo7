@@ -27,3 +27,12 @@ export function updateVideojuego(id, videojuego) {
 export function deleteVideojuego(id) {
   return httpClient.delete(`/videojuegos/${id}`);
 }
+
+export function fetchFichaVideojuego(id) {
+  return httpClient.get(`/videojuegos/${id}/ficha`);
+}
+
+/** 202 Accepted: la ficha se genera de forma asincrona (RabbitMQ). */
+export function solicitarFichaVideojuego(id) {
+  return httpClient.post(`/videojuegos/${id}/ficha`);
+}

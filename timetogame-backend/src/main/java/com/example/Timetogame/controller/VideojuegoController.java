@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.Timetogame.dto.FichaVideojuegoDTO;
+import com.example.Timetogame.dto.SolicitudFichaDTO;
 import com.example.Timetogame.dto.VideojuegoDTO;
+import com.example.Timetogame.service.FichaVideojuegoService;
 import com.example.Timetogame.service.VideojuegoService;
 
 import jakarta.validation.Valid;
@@ -26,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class VideojuegoController {
 
     private final VideojuegoService videojuegoService;
+    private final FichaVideojuegoService fichaService;
 
     @GetMapping
     public ResponseEntity<List<VideojuegoDTO>> findAll(
@@ -56,5 +60,17 @@ public class VideojuegoController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         videojuegoService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/ficha")
+    public ResponseEntity<FichaVideojuegoDTO> findFicha(@PathVariable Long id) {
+        return ResponseEntity.ok(fichaService.findByVideojuegoId(id));
+    }
+
+    /** 202: la ficha se genera en segundo plano (cola timetogame.documentos.fichas). */
+    @PostMapping("/{id}/ficha")
+    public ResponseEntity<SolicitudFichaDTO> solicitarFicha(@PathVariable Long id) {
+        SolicitudFichaDTO solicitud = fichaService.solicitarGeneracion(id);
+        return ResponseEntity.accepted().location(URI.create("/api/videojuegos/" + id + "/ficha")).body(solicitud);
     }
 }

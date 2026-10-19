@@ -1,14 +1,14 @@
 package com.example.Timetogame.messaging.config;
 
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.DLQ_QUEUE;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.DLQ_ROUTING_KEY;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.DLX_EXCHANGE;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.EVENTS_EXCHANGE;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.NOTIFICACIONES_BINDING_KEY;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.NOTIFICACIONES_QUEUE;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.RETRY_EXCHANGE;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.RETRY_QUEUE;
-import static com.example.Timetogame.messaging.config.NotificacionesTopologia.RETRY_ROUTING_KEY;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Catalogo.EVENTS_EXCHANGE;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.BINDING_KEY;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.DLQ_QUEUE;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.DLQ_ROUTING_KEY;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.DLX_EXCHANGE;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.QUEUE;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.RETRY_EXCHANGE;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.RETRY_QUEUE;
+import static com.example.Timetogame.messaging.config.TopologiaMensajeria.Notificaciones.RETRY_ROUTING_KEY;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -23,7 +23,10 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Declaracion de exchanges, colas y bindings del caso de uso "notificaciones
  * de catalogo". RabbitAdmin (autoconfigurado por Spring Boot) los declara en
- * el broker al conectar. Ver {@link NotificacionesTopologia} para el diagrama.
+ * el broker al conectar. Ver {@link TopologiaMensajeria} para el diagrama.
+ *
+ * <p>Las colas son quorum: se replican en los nodos del cluster (Raft) en vez
+ * de vivir en uno solo.
  */
 @Configuration
 public class NotificacionesMessagingConfig {
@@ -41,7 +44,8 @@ public class NotificacionesMessagingConfig {
      */
     @Bean
     public Queue notificacionesQueue() {
-        return QueueBuilder.durable(NOTIFICACIONES_QUEUE)
+        return QueueBuilder.durable(QUEUE)
+                .quorum()
                 .deadLetterExchange(DLX_EXCHANGE)
                 .deadLetterRoutingKey(DLQ_ROUTING_KEY)
                 .build();
@@ -51,7 +55,7 @@ public class NotificacionesMessagingConfig {
     public Binding notificacionesBinding() {
         return BindingBuilder.bind(notificacionesQueue())
                 .to(catalogoEventsExchange())
-                .with(NOTIFICACIONES_BINDING_KEY);
+                .with(BINDING_KEY);
     }
 
     // ---- Reintento diferido: cola de espera con TTL que devuelve a la principal ----
@@ -67,11 +71,12 @@ public class NotificacionesMessagingConfig {
      * vuelve solo a notificaciones (no a otras colas enlazadas al topic).
      */
     @Bean
-    public Queue notificacionesRetryQueue(NotificacionesProperties properties) {
+    public Queue notificacionesRetryQueue(MensajeriaProperties properties) {
         return QueueBuilder.durable(RETRY_QUEUE)
-                .ttl((int) properties.retrasoReintento().toMillis())
+                .quorum()
+                .ttl((int) properties.notificaciones().retrasoReintento().toMillis())
                 .deadLetterExchange("")
-                .deadLetterRoutingKey(NOTIFICACIONES_QUEUE)
+                .deadLetterRoutingKey(QUEUE)
                 .build();
     }
 
@@ -91,7 +96,7 @@ public class NotificacionesMessagingConfig {
 
     @Bean
     public Queue notificacionesDeadLetterQueue() {
-        return QueueBuilder.durable(DLQ_QUEUE).build();
+        return QueueBuilder.durable(DLQ_QUEUE).quorum().build();
     }
 
     @Bean

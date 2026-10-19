@@ -24,7 +24,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(NotificacionesProperties.class)
+@EnableConfigurationProperties(MensajeriaProperties.class)
 public class RabbitMQConfig {
 
     public static final String MANUAL_ACK_CONTAINER_FACTORY = "manualAckContainerFactory";
