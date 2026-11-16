@@ -11,3 +11,6 @@ DB_PASSWORD=changeme
 # coincide con la URL de abajo.
 OIDC_ISSUER_URI=https://login.microsoftonline.com/<TENANT_ID>/v2.0
 OIDC_AUDIENCE=<CLIENT_ID_API>
+
+# Kafka local (1 broker): replicas en 1. En AWS se omite (default 3).
+KAFKA_TOPICOS_REPLICAS=1

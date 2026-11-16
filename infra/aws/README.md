@@ -14,6 +14,7 @@ secretos: las contrasenas viven solo en las EC2 (`/etc/timetogame`,
 | RDS | MySQL 8.4.9, `db.t3.micro`, 20 GB gp3, identificador `database-1`, usuario maestro `timetogame`, base `timetogame`, **sin acceso publico**, misma VPC que el backend (`vpc-01e86485831b168ff`, la por defecto) |
 | API Gateway | HTTP API `7rqni1tm5d`, stage `$default` con auto-deploy, **sin CORS propio** |
 | Llave SSH | Par de llaves `cloudkey` (`cloudkey.pem`) |
+| EC2 Kafka (nueva, EP5/EP6) | `t3.large` recomendado (8 GB; minimo `t3.medium` + swap), Ubuntu 26.04, 16 GB de disco. Corre 3 Zookeeper + 3 brokers + Kafka UI en Docker (`infra/kafka`, `infra/kafka-ui`) |
 
 ### Security Groups
 
@@ -24,6 +25,8 @@ secretos: las contrasenas viven solo en las EC2 (`/etc/timetogame`,
 | Frontend | 22 (SSH) | Tu IP (`/32`) |
 | Frontend | 80, 443 (HTTP/HTTPS) | `0.0.0.0/0` |
 | RDS | 3306 (MySQL) | El **SG del backend** (referencia al SG, no una IP) |
+| Kafka | 22 (SSH) | Tu IP (`/32`) |
+| Kafka | 9092-9094 (TCP) | El **SG del backend** (backend y admin se conectan por IP privada) |
 
 ### API Gateway (HTTP API)
 
@@ -41,7 +44,7 @@ Rutas (sin ruta `ANY` y sin `$default`):
 |---|---|---|
 | `GET`, `POST`, `PUT`, `DELETE`, `PATCH` `/{proxy+}` | backend | `entra-id` |
 | `OPTIONS /{proxy+}` | backend | ninguno (preflight CORS) |
-| `GET`, `POST`, `DELETE` `/api/admin/{proxy+}` | admin | `entra-id` |
+| `GET`, `POST`, `PATCH`, `DELETE` `/api/admin/{proxy+}` | admin | `entra-id` (PATCH: editar topicos Kafka) |
 | `OPTIONS /api/admin/{proxy+}` | admin | ninguno |
 | `GET /api/public/{proxy+}` | publico | ninguno |
 
@@ -61,45 +64,54 @@ Orden recomendado. `<IP_BACKEND>` y `<IP_FRONTEND>` son las IP elasticas nuevas.
 
 1. **Llave SSH**: EC2 > Key pairs > crear `cloudkey` (o importar la publica
    de la actual) y guardar el `.pem`.
-2. **Security Groups**: crear los tres de la tabla de arriba, en la VPC
+2. **Security Groups**: crear los cuatro de la tabla de arriba, en la VPC
    por defecto.
 3. **RDS**: MySQL 8, Free tier, `db.t3.micro`, 20 GB, usuario `timetogame`,
    misma VPC, *Public access: No*, SG de RDS. Anotar el endpoint.
-4. **EC2 backend**: Ubuntu, `t3.small`, SG backend, 8 GB o mas. Asociar una
+4. **EC2 Kafka**: Ubuntu, `t3.large`, SG Kafka, 16 GB. Por SSH (al terminar
+   imprime el `KAFKA_BOOTSTRAP` para el paso siguiente):
+   ```bash
+   curl -fsSLO https://raw.githubusercontent.com/panda2048-max/CloudNativeGrupo7/main/infra/aws/kafka/setup-kafka.sh
+   bash setup-kafka.sh
+   ```
+5. **EC2 backend**: Ubuntu, `t3.small`, SG backend, 8 GB o mas. Asociar una
    IP elastica. Luego, por SSH:
    ```bash
    curl -fsSLO https://raw.githubusercontent.com/panda2048-max/CloudNativeGrupo7/main/infra/aws/backend/setup-backend.sh
-   RDS_ENDPOINT=<endpoint> ORIGEN_FRONTEND=https://<IP_FRONTEND>.nip.io bash setup-backend.sh
+   RDS_ENDPOINT=<endpoint> ORIGEN_FRONTEND=https://<IP_FRONTEND>.nip.io \n   KAFKA_BOOTSTRAP=<ip-privada-kafka>:9092,<ip-privada-kafka>:9093,<ip-privada-kafka>:9094 \n   bash setup-backend.sh
    ```
-5. **Restaurar los datos** (respaldo local `timetogame-rds-*.sql`, fuera del repo):
+6. **Restaurar los datos** (respaldo local `timetogame-rds-*.sql`, fuera del repo):
    ```bash
    scp -i cloudkey.pem timetogame-rds-AAAA-MM-DD.sql ubuntu@<IP_BACKEND>:/tmp/
    # en la EC2:
    mysql -h <endpoint> -u timetogame -p timetogame < /tmp/timetogame-rds-AAAA-MM-DD.sql
    ```
-6. **EC2 frontend**: Ubuntu, `t3.micro`, SG frontend, IP elastica. Por SSH:
+7. **EC2 frontend**: Ubuntu, `t3.micro`, SG frontend, IP elastica. Por SSH
+   (`IP_BACKEND` es para el proxy de las tendencias en vivo, que no pasa por el Gateway):
    ```bash
    curl -fsSLO https://raw.githubusercontent.com/panda2048-max/CloudNativeGrupo7/main/infra/aws/frontend/setup-frontend.sh
-   IP_ELASTICA=<IP_FRONTEND> CORREO=<tu correo> bash setup-frontend.sh
+   IP_ELASTICA=<IP_FRONTEND> IP_BACKEND=<IP_BACKEND> CORREO=<tu correo> bash setup-frontend.sh
    ```
-7. **API Gateway**: crear la HTTP API con las integraciones, rutas y el
+8. **API Gateway**: crear la HTTP API con las integraciones, rutas y el
    authorizer de las tablas de arriba. Anotar la Invoke URL.
-8. **Microsoft Entra ID**: en `timetogame-spa` > Authentication, agregar
+9. **Microsoft Entra ID**: en `timetogame-spa` > Authentication, agregar
    `https://<IP_FRONTEND>.nip.io/callback` y `https://<IP_FRONTEND>.nip.io/`
    como redirect URIs (Single-page application).
-9. **Frontend**: en el PC, actualizar `timetogame-frontend/.env.production`
+10. **Frontend**: en el PC, actualizar `timetogame-frontend/.env.production`
    (URL del API Gateway y las dos URL de redirect), compilar y subir:
    ```bash
    cd timetogame-frontend && npm run build
    scp -i cloudkey.pem -r dist/* ubuntu@<IP_FRONTEND>:/tmp/dist/
    ssh -i cloudkey.pem ubuntu@<IP_FRONTEND> "sudo rm -rf /var/www/timetogame/* && sudo cp -r /tmp/dist/* /var/www/timetogame/"
    ```
-10. **Verificar**:
+11. **Verificar**:
     - `curl -i https://<api>.execute-api.us-east-1.amazonaws.com/api/videojuegos`
       debe dar 401 `{"message":"Unauthorized"}`;
     - `/api/public/videojuegos` debe dar 200;
-    - login en `https://<IP_FRONTEND>.nip.io`.
+    - login en `https://<IP_FRONTEND>.nip.io`;
+    - la portada muestra "Tendencias en vivo" con el indicador "En vivo" (SSE por Nginx);
+    - Kafka UI por tunel: `ssh -i cloudkey.pem -L 8080:localhost:8080 ubuntu@<ip-kafka>` y `http://localhost:8080`.
 
 Al apagar y encender las instancias no hay que repetir nada: Docker,
-RabbitMQ, los dos servicios y Nginx arrancan solos y las IP elasticas no
+RabbitMQ, Kafka, los dos servicios y Nginx arrancan solos y las IP elasticas no
 cambian. Si cambia tu IP publica, actualizar la regla SSH de los SG.

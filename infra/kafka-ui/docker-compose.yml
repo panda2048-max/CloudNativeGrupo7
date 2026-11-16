@@ -1,0 +1,28 @@
+# Kafka UI: brokers, topicos, particiones, mensajes y consumer groups (lag).
+# Levantar despues del cluster (usa su red "timetogame-kafka"):
+#
+#   docker compose up -d
+#
+# Escucha solo en 127.0.0.1: se abre con un tunel SSH desde el PC
+#   ssh -i <llave>.pem -L 8080:localhost:8080 ubuntu@<ip-ec2-kafka>  ->  http://localhost:8080
+name: timetogame-kafka-ui
+
+services:
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    restart: unless-stopped
+    mem_limit: 512m
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: timetogame
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:29092,kafka-2:29092,kafka-3:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper-1:2181
+      DYNAMIC_CONFIG_ENABLED: "false"
+      JAVA_OPTS: -Xms128m -Xmx384m
+
+networks:
+  default:
+    name: timetogame-kafka
+    external: true

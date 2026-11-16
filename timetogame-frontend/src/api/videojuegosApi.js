@@ -4,8 +4,12 @@ export function fetchPublicVideojuegos() {
   return httpClient.get("/public/videojuegos", { auth: false });
 }
 
+/**
+ * Publico, pero si hay sesion manda el token: abrir la ficha cuenta como una
+ * vista (Kafka) y, con usuario conocido, queda en su historial.
+ */
 export function fetchPublicVideojuego(id) {
-  return httpClient.get(`/public/videojuegos/${id}`, { auth: false });
+  return httpClient.get(`/public/videojuegos/${id}`);
 }
 
 export function fetchVideojuegos() {

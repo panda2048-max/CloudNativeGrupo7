@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { TendenciasEnVivo } from "../components/TendenciasEnVivo";
 
 export function HomePage() {
   const { isAuthenticated } = useAuth();
@@ -22,6 +23,8 @@ export function HomePage() {
           </Link>
         )}
       </div>
+
+      <TendenciasEnVivo />
     </section>
   );
 }

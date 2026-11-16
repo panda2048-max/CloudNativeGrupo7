@@ -2,7 +2,7 @@
 # Prepara una EC2 Ubuntu nueva como servidor del frontend: Nginx + HTTPS con
 # Let's Encrypt sobre <ip>.nip.io. Se ejecuta UNA vez en la EC2:
 #
-#   IP_ELASTICA=1.2.3.4 CORREO=tu@correo.com bash setup-frontend.sh
+#   IP_ELASTICA=1.2.3.4 IP_BACKEND=5.6.7.8 CORREO=tu@correo.com bash setup-frontend.sh
 #
 # Antes: la IP elastica asociada a la instancia y el Security Group con 80 y
 # 443 abiertos (certbot valida por el puerto 80). El build se sube despues
@@ -10,6 +10,7 @@
 set -euo pipefail
 
 : "${IP_ELASTICA:?Definir IP_ELASTICA}"
+: "${IP_BACKEND:?Definir IP_BACKEND (IP elastica del backend, para el proxy SSE)}"
 : "${CORREO:?Definir CORREO (avisos de vencimiento de Let's Encrypt)}"
 DOMINIO="$IP_ELASTICA.nip.io"
 
@@ -27,6 +28,17 @@ server {
 
     location / {
         try_files \$uri \$uri/ /index.html;
+    }
+
+    # Tendencias en vivo (SSE) directo al backend: el API Gateway no mantiene
+    # conexiones abiertas.
+    location /api/public/stream/ {
+        proxy_pass http://$IP_BACKEND:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
     }
 }
 EOF

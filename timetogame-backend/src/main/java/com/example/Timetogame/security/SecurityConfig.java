@@ -80,7 +80,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(restAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/mensajes-fallidos/**").hasRole("ADMIN")
+                        .requestMatchers("/api/mensajes-fallidos/**", "/api/streaming/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/videojuegos/**", "/api/generos/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/videojuegos/**", "/api/generos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/videojuegos/**", "/api/generos/**").hasRole("ADMIN")

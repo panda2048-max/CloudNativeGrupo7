@@ -4,6 +4,12 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localho
 export const RABBIT_ADMIN_API_URL =
   import.meta.env.VITE_RABBIT_ADMIN_API_URL ?? "http://localhost:8001/api/admin";
 
+// Server-Sent Events de tendencias (publico). En AWS el API Gateway no
+// mantiene conexiones abiertas, asi que va por el Nginx del frontend
+// (VITE_STREAM_URL=/api/public/stream/tendencias, mismo origen).
+export const STREAM_URL =
+  import.meta.env.VITE_STREAM_URL ?? `${API_BASE_URL}/public/stream/tendencias`;
+
 // Microsoft Entra ID (Azure AD). TENANT_ID y CLIENT_ID_SPA salen del App
 // registration "timetogame-spa"; API_SCOPE es el scope expuesto por el App
 // registration "timetogame-api" (Expose an API > Add a scope).

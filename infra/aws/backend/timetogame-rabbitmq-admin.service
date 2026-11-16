@@ -1,5 +1,5 @@
 # /etc/systemd/system/timetogame-rabbitmq-admin.service
-# Reemplazar <ORIGEN_FRONTEND>.
+# Reemplazar <ORIGEN_FRONTEND> y <KAFKA_BOOTSTRAP>.
 [Unit]
 Description=TimeToGame RabbitMQ admin (Spring Boot)
 After=network.target docker.service
@@ -19,6 +19,7 @@ Environment=OIDC_AUDIENCE=3aea2387-eabd-41de-87da-1503cf447475
 Environment=CORS_ALLOWED_ORIGIN=<ORIGEN_FRONTEND>
 Environment=RABBITMQ_ADDRESSES=localhost:5672,localhost:5673
 Environment=RABBITMQ_MANAGEMENT_URLS=http://localhost:15672,http://localhost:15673
+Environment=KAFKA_BOOTSTRAP_SERVERS=<KAFKA_BOOTSTRAP>
 Environment=LOG_DIR=/home/ubuntu/app/timetogame-rabbitmq-admin/logs
 # RABBITMQ_USERNAME / RABBITMQ_PASSWORD
 EnvironmentFile=/etc/timetogame/rabbitmq-admin.env

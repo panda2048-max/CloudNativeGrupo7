@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.validation.method.ParameterErrors;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BrokerNoDisponibleException.class)
     public ResponseEntity<Map<String, Object>> handleBrokerNoDisponible(BrokerNoDisponibleException ex) {
-        log.error("RabbitMQ no disponible", ex);
+        log.error("Broker no disponible (RabbitMQ o Kafka)", ex);
         return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
@@ -56,6 +57,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleParameterValidation(HandlerMethodValidationException ex) {
         Map<String, String> errores = new LinkedHashMap<>();
         ex.getParameterValidationResults().forEach(result -> {
+            // Un @Valid @RequestBody en un metodo que ademas valida @PathVariable llega
+            // aqui (no como MethodArgumentNotValidException): se informa por campo del DTO.
+            if (result instanceof ParameterErrors erroresDto) {
+                erroresDto.getFieldErrors().forEach(error ->
+                        errores.putIfAbsent(error.getField(), error.getDefaultMessage()));
+                erroresDto.getGlobalErrors().forEach(error ->
+                        errores.putIfAbsent(error.getObjectName(), error.getDefaultMessage()));
+                return;
+            }
             String parametro = result.getMethodParameter().getParameterName();
             result.getResolvableErrors().forEach(error ->
                     errores.putIfAbsent(parametro != null ? parametro : "parametro", error.getDefaultMessage()));

@@ -4,6 +4,7 @@ import { fetchVideojuego, fetchVideojuegos } from "../api/videojuegosApi";
 import { useAuth } from "../auth/AuthContext";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { StatusMessage } from "../components/StatusMessage";
+import { HistorialSection } from "./panel/HistorialSection";
 import { NotificacionesSection } from "./panel/NotificacionesSection";
 
 export function PanelPage() {
@@ -121,6 +122,7 @@ export function PanelPage() {
         )}
       </div>
 
+      <HistorialSection />
       <NotificacionesSection />
     </section>
   );

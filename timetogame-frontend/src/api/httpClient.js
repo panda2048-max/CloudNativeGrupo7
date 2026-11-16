@@ -79,6 +79,7 @@ function createHttpClient(baseUrl) {
     get: (path, opts) => request(baseUrl, path, { ...opts, method: "GET" }),
     post: (path, body, opts) => request(baseUrl, path, { ...opts, method: "POST", body }),
     put: (path, body, opts) => request(baseUrl, path, { ...opts, method: "PUT", body }),
+    patch: (path, body, opts) => request(baseUrl, path, { ...opts, method: "PATCH", body }),
     delete: (path, opts) => request(baseUrl, path, { ...opts, method: "DELETE" }),
   };
 }

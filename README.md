@@ -11,6 +11,9 @@ timetogame-backend/         API REST del catalogo (Resource Server OAuth2) +
 timetogame-rabbitmq-admin/  Microservicio administrador de RabbitMQ (crear/
                             eliminar colas, exchanges y bindings) + auditoria
 infra/rabbitmq/             docker-compose del cluster RabbitMQ de 2 nodos
+infra/kafka/                docker-compose de Kafka: 3 Zookeeper + 3 brokers
+infra/kafka-ui/             docker-compose de Kafka UI
+infra/aws/                  runbook y scripts para recrear el despliegue en AWS
 ```
 
 ## Autenticacion (Microsoft Entra ID / Azure AD)
@@ -291,6 +294,100 @@ echo -n "<pass>" | ./crear-usuario.sh timetogame-admin management
   `ssh -i <llave>.pem -L 15672:localhost:15672 ubuntu@<ip-backend>` y luego
   `http://localhost:15672` (pestaña *Overview* > *Nodes* muestra los dos).
 
+## Streaming de eventos (Kafka)
+
+Kafka se agrega **al lado** de RabbitMQ, sin reemplazarlo: RabbitMQ sigue con
+las tareas (notificaciones, fichas, auditoria) y Kafka lleva los **flujos de
+eventos** que varios consumidores leen a su ritmo. El caso de uso es
+**Tendencias en vivo**: cada ficha que se abre es un evento; un consumidor
+cuenta las vistas en una ventana deslizante de 10 minutos y el ranking llega
+al navegador por **Server-Sent Events**, sin recargar ni consultar cada X
+segundos.
+
+```
+GET /api/public/videojuegos/{id} ─> ActividadService ─ publishEvent ─> ActividadProducer (@Async)
+   ─(VideojuegoVistoEvent, key=videojuegoId)─> [timetogame.actividad]  3 particiones x 3 replicas
+        ├─ group "tendencias" (3 hilos, 1 por particion) ─> TendenciasService ─> SSE /api/public/stream/tendencias
+        └─ group "historial"                             ─> HistorialService  ─> tabla historial_vistas
+
+Alta/edicion/baja de videojuego ─ CatalogoEvent (el mismo de RabbitMQ) ─> CatalogoCambioProducer (AFTER_COMMIT)
+   ─(CatalogoCambioEvent, key=videojuegoId)─> [timetogame.catalogo.cambios]  compactado, 3 x 3
+        ├─ group "tendencias"    ─> actualiza titulos / saca del ranking al eliminado
+        └─ group "catalogo-live" ─> SSE: aviso en vivo "X se actualizo"
+
+Error no recuperable o 3 reintentos (1 s, 2 s, 4 s) agotados ─> <topico>.DLT (misma particion)
+```
+
+### Topicos y por que cada parametro
+
+| Topico | Key | Particiones / replicas | Limpieza y retencion | Por que |
+|---|---|---|---|---|
+| `timetogame.actividad` | videojuegoId | 3 / 3, `min.insync.replicas=2` | `delete`, 7 dias | Flujo de eventos: lo que paso. 7 dias permiten reprocesar o sumar un consumidor nuevo desde el inicio |
+| `timetogame.catalogo.cambios` | videojuegoId | 3 / 3, `min.insync.replicas=2` | `compact` | Estado: Kafka conserva al menos el ultimo evento de cada juego; un consumidor nuevo reconstruye el catalogo |
+| `*.DLT` | la original | 3 / 3 | `delete`, 14 dias | Mensajes que no se pudieron procesar, con headers de la causa |
+
+- **Particiones = paralelismo**: el grupo `tendencias` corre 3 hilos y Kafka
+  le da una particion a cada uno. Con la key = videojuegoId, todas las vistas
+  de un juego caen en la misma particion y se procesan en orden.
+- **Replicas = disponibilidad**: cada particion vive en los 3 brokers. Si cae
+  uno, otra replica del ISR pasa a ser lider. Con `acks=all` y
+  `min.insync.replicas=2`, una escritura confirmada ya esta en 2 brokers.
+- **Consumer groups**: `tendencias` e `historial` leen el mismo topico y cada
+  uno recibe **todos** los eventos (offsets propios). Dentro de un grupo, las
+  particiones se reparten: con mas hilos o instancias se procesa mas rapido
+  (hasta 3, una por particion).
+- **Lag**: si el lag del grupo crece sostenidamente, el consumidor no da
+  abasto y hay que escalar. `POST /api/streaming/simulacion?vistas=N` (ADMIN)
+  genera carga; con `TENDENCIAS_COSTO_PROCESAMIENTO=20ms` el lag se ve subir
+  y bajar en Kafka UI o en Mensajeria > Kafka.
+
+### Codigo (backend, paquete `streaming`)
+
+| Pieza | Clase |
+|---|---|
+| Nombres de topicos y grupos | `config.TopologiaKafka` |
+| Topicos en codigo (`NewTopic`/`TopicBuilder`) | `config.KafkaTopicConfig` |
+| Errores: `DefaultErrorHandler` + backoff exponencial + `DeadLetterPublishingRecoverer` | `config.KafkaConfig` |
+| Cliente (bootstrap, serializers, `acks=all`, `retries`, idempotencia, `group-id` por listener) | `application.properties` (`spring.kafka.*`) |
+| Eventos tipados (DTO) | `event.VideojuegoVistoEvent`, `event.CatalogoCambioEvent` |
+| Productores (`KafkaTemplate`, `JacksonJsonSerializer`) | `producer.ActividadProducer`, `producer.CatalogoCambioProducer` |
+| Consumidores (`@KafkaListener` que delega en un service) | `consumer.tendencias`, `consumer.historial`, `consumer.catalogo` |
+| SSE | `sse.StreamHub`, `controller.StreamController` |
+
+Un JSON invalido no bota al consumidor: `ErrorHandlingDeserializer` lo
+convierte en error, `DefaultErrorHandler` no lo reintenta (tampoco un evento
+que no pasa la validacion del DTO) y lo publica en el DLT; el consumidor
+sigue con el siguiente offset.
+
+### Administracion (microservicio admin)
+
+| Metodo y ruta | Que hace |
+|---|---|
+| `GET /api/admin/kafka/cluster` | Brokers y controlador |
+| `GET /api/admin/kafka/topics` | Topicos con particiones y replicas |
+| `GET /api/admin/kafka/topics/{nombre}` | Por particion: lider, replicas, ISR; configuracion |
+| `POST /api/admin/kafka/topics` | Crear (nombre, particiones, replicas, politica, retencion, min.insync) |
+| `PATCH /api/admin/kafka/topics/{nombre}` | Aumentar particiones, cambiar retencion, cleanup.policy o min.insync |
+| `DELETE /api/admin/kafka/topics/{nombre}` | Eliminar (los `timetogame.*` e internos estan protegidos: 409) |
+| `GET /api/admin/kafka/consumer-groups` | Grupos y estado |
+| `GET /api/admin/kafka/consumer-groups/{id}` | Miembros, particiones asignadas, offsets y lag |
+| `DELETE /api/admin/kafka/consumer-groups/{id}` | Eliminar un grupo sin consumidores activos |
+
+Todo con `AdminClient` dentro de `KafkaAdminService`. En el frontend:
+**Mensajeria > Kafka** (con refresco automatico del lag).
+
+### Infraestructura
+
+- `infra/kafka/docker-compose.yml`: 3 Zookeeper (ensemble, mayoria 2 de 3) +
+  3 brokers (Confluent 7.7), replicacion 3 y `min.insync.replicas=2` por
+  defecto, `unclean.leader.election` desactivado, creacion automatica de
+  topicos desactivada.
+- `infra/kafka-ui/docker-compose.yml`: Kafka UI en `127.0.0.1:8080` (tunel SSH).
+- En AWS corre en una EC2 aparte (`infra/aws/kafka/setup-kafka.sh`); backend
+  y admin usan `KAFKA_BOOTSTRAP_SERVERS=<ip-privada>:9092,9093,9094`.
+- En local sin Docker se puede usar un Kafka 3.9 nativo con 1 broker y
+  `KAFKA_TOPICOS_REPLICAS=1`.
+
 ## Configuracion por ambiente
 
 Nada de esto esta hardcodeado en logica de negocio: todo se lee de
@@ -314,6 +411,10 @@ local.
 | Reintentos de notificaciones (default 3 y 5s) | Backend | `NOTIFICACIONES_MAX_REINTENTOS`, `NOTIFICACIONES_RETRASO_REINTENTO` |
 | Reintentos de fichas (default 3 y 5s) | Backend | `DOCUMENTOS_MAX_REINTENTOS`, `DOCUMENTOS_RETRASO_REINTENTO` |
 | API HTTP de management de RabbitMQ (una URL por nodo) | Admin | `RABBITMQ_MANAGEMENT_URLS` |
+| Brokers de Kafka (separados por coma) | Backend y admin | `KAFKA_BOOTSTRAP_SERVERS` |
+| Particiones y replicas de los topicos (default 3 y 3; en local con 1 broker, replicas 1) | Backend | `KAFKA_TOPICOS_PARTICIONES`, `KAFKA_TOPICOS_REPLICAS` |
+| Ventana, hilos y costo artificial de tendencias (default 10m, 3, 0ms) | Backend | `TENDENCIAS_VENTANA`, `TENDENCIAS_CONSUMIDORES`, `TENDENCIAS_COSTO_PROCESAMIENTO` |
+| URL del stream SSE de tendencias | Frontend | `VITE_STREAM_URL` |
 | Prefijos protegidos contra eliminacion | Admin | `RABBIT_ADMIN_RECURSOS_PROTEGIDOS` |
 
 Los archivos con valores locales (`.env` en el frontend,
@@ -335,10 +436,21 @@ por encima de `.env` (no hay que copiarlo).
      `sbin\rabbitmq-plugins.bat enable --offline rabbitmq_management` y luego
      `sbin\rabbitmq-server.bat`.
    - AMQP en `5672`, UI de management en `http://localhost:15672` (guest/guest).
-3. `timetogame-backend/` - `./mvnw spring-boot:run` (puerto 8000). Declara su
-   topologia en el broker al conectar.
-4. `timetogame-rabbitmq-admin/` - `./mvnw spring-boot:run` (puerto 8001).
-5. `timetogame-frontend/` - `npm install && npm run dev` (puerto 5173).
+3. **Kafka** (con Docker: `infra/kafka` con `KAFKA_HOST=localhost`). En
+   Windows sin Docker, 1 Zookeeper + 1 broker nativos:
+   - Descargar `kafka_2.13-3.9.1.tgz` (https://archive.apache.org/dist/kafka/3.9.1/)
+     y un JRE 21 (Kafka 3.9 no funciona bien con Java 25).
+   - En `config/server.properties`: `listeners=PLAINTEXT://localhost:9092`,
+     `auto.create.topics.enable=false` y `log.dirs` en una ruta corta.
+   - Con `JAVA_HOME=<jre21>` y `KAFKA_HEAP_OPTS=-Xmx512m` (sin esta variable el
+     script usa `wmic`, que ya no existe en Windows 11):
+     `bin\windows\zookeeper-server-start.bat config\zookeeper.properties` y
+     `bin\windows\kafka-server-start.bat config\server.properties`.
+   - En `application-local.properties` del backend: `KAFKA_TOPICOS_REPLICAS=1`.
+4. `timetogame-backend/` - `./mvnw spring-boot:run` (puerto 8000). Declara su
+   topologia en RabbitMQ y crea sus topicos en Kafka al conectar.
+5. `timetogame-rabbitmq-admin/` - `./mvnw spring-boot:run` (puerto 8001).
+6. `timetogame-frontend/` - `npm install && npm run dev` (puerto 5173).
 
 Si el broker se cae, ambos microservicios siguen respondiendo y se reconectan
 solos (y re-declaran su topologia) cuando vuelve.

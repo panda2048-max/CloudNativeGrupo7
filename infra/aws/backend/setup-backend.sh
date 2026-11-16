@@ -6,6 +6,7 @@
 #   curl -fsSLO https://raw.githubusercontent.com/panda2048-max/CloudNativeGrupo7/main/infra/aws/backend/setup-backend.sh
 #   RDS_ENDPOINT=database-1.xxxx.us-east-1.rds.amazonaws.com \
 #   ORIGEN_FRONTEND=https://<ip-frontend>.nip.io \
+#   KAFKA_BOOTSTRAP=<ip-privada-kafka>:9092,<ip-privada-kafka>:9093,<ip-privada-kafka>:9094 \
 #   bash setup-backend.sh
 #
 # Pide la contrasena de RDS por teclado (no queda en el historial). Las de
@@ -15,6 +16,7 @@ set -euo pipefail
 
 : "${RDS_ENDPOINT:?Definir RDS_ENDPOINT}"
 : "${ORIGEN_FRONTEND:?Definir ORIGEN_FRONTEND (ej. https://1.2.3.4.nip.io)}"
+: "${KAFKA_BOOTSTRAP:?Definir KAFKA_BOOTSTRAP (brokers de la EC2 de Kafka)}"
 REPO_URL="${REPO_URL:-https://github.com/panda2048-max/CloudNativeGrupo7.git}"
 RAMA="${RAMA:-main}"
 APP=/home/ubuntu/app
@@ -70,6 +72,7 @@ sudo sed -n "s/^RABBITMQ_PASSWORD=//p" /etc/timetogame/rabbitmq-admin.env | tr -
 echo "== Servicios systemd"
 for unit in timetogame-backend timetogame-rabbitmq-admin; do
   sed -e "s|<ENDPOINT_RDS>|$RDS_ENDPOINT|" -e "s|<ORIGEN_FRONTEND>|$ORIGEN_FRONTEND|" \
+    -e "s|<KAFKA_BOOTSTRAP>|$KAFKA_BOOTSTRAP|" \
     "$APP/infra/aws/backend/$unit.service" | sudo tee /etc/systemd/system/$unit.service >/dev/null
 done
 sudo systemctl daemon-reload

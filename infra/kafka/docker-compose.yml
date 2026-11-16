@@ -1,0 +1,146 @@
+# Cluster Kafka de TimeToGame: 3 Zookeeper (ensemble) + 3 brokers.
+#
+#   cp .env.example .env      # KAFKA_HOST = IP privada de esta EC2
+#   docker compose up -d
+#   docker compose exec kafka-1 kafka-topics --bootstrap-server kafka-1:29092 --describe
+#
+# Tolerancia a fallos:
+#  - Zookeeper decide por mayoria: con 3 nodos sigue funcionando si cae 1.
+#  - Cada particion tiene 3 replicas (una por broker) y min.insync.replicas=2:
+#    si cae un broker, otra replica al dia (ISR) pasa a ser lider y los
+#    productores con acks=all siguen escribiendo sin perder datos.
+#
+# Dos listeners por broker:
+#  - INTERNAL (kafka-N:29092): replicacion entre brokers y Kafka UI, dentro de la red Docker.
+#  - EXTERNAL (KAFKA_HOST:909N): clientes fuera de Docker (backend y admin en la otra EC2).
+name: timetogame-kafka
+
+x-zookeeper: &zookeeper
+  image: confluentinc/cp-zookeeper:7.7.1
+  restart: unless-stopped
+  mem_limit: 384m
+
+x-zookeeper-env: &zookeeper-env
+  ZOOKEEPER_CLIENT_PORT: 2181
+  ZOOKEEPER_TICK_TIME: 2000
+  ZOOKEEPER_INIT_LIMIT: 5
+  ZOOKEEPER_SYNC_LIMIT: 2
+  ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
+  KAFKA_HEAP_OPTS: -Xms128m -Xmx256m
+
+x-kafka: &kafka
+  image: confluentinc/cp-kafka:7.7.1
+  restart: unless-stopped
+  mem_limit: 1g
+  depends_on:
+    - zookeeper-1
+    - zookeeper-2
+    - zookeeper-3
+
+x-kafka-env: &kafka-env
+  KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+  KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+  # Durabilidad por defecto para cualquier topico (los de la app lo declaran igual en codigo).
+  KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+  KAFKA_MIN_INSYNC_REPLICAS: 2
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  # Solo una replica al dia puede ser lider: nunca se pierden mensajes confirmados.
+  KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "false"
+  # Los topicos los crea la aplicacion (NewTopic) o el admin, no un productor por error.
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+  KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+
+services:
+  zookeeper-1:
+    <<: *zookeeper
+    hostname: zookeeper-1
+    container_name: zookeeper-1
+    environment:
+      <<: *zookeeper-env
+      ZOOKEEPER_SERVER_ID: 1
+    volumes:
+      - zookeeper-1-data:/var/lib/zookeeper/data
+      - zookeeper-1-log:/var/lib/zookeeper/log
+
+  zookeeper-2:
+    <<: *zookeeper
+    hostname: zookeeper-2
+    container_name: zookeeper-2
+    environment:
+      <<: *zookeeper-env
+      ZOOKEEPER_SERVER_ID: 2
+    volumes:
+      - zookeeper-2-data:/var/lib/zookeeper/data
+      - zookeeper-2-log:/var/lib/zookeeper/log
+
+  zookeeper-3:
+    <<: *zookeeper
+    hostname: zookeeper-3
+    container_name: zookeeper-3
+    environment:
+      <<: *zookeeper-env
+      ZOOKEEPER_SERVER_ID: 3
+    volumes:
+      - zookeeper-3-data:/var/lib/zookeeper/data
+      - zookeeper-3-log:/var/lib/zookeeper/log
+
+  kafka-1:
+    <<: *kafka
+    hostname: kafka-1
+    container_name: kafka-1
+    ports:
+      - "9092:9092"
+    environment:
+      <<: *kafka-env
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:29092,EXTERNAL://${KAFKA_HOST:?Definir KAFKA_HOST en .env}:9092
+    volumes:
+      - kafka-1-data:/var/lib/kafka/data
+
+  kafka-2:
+    <<: *kafka
+    hostname: kafka-2
+    container_name: kafka-2
+    ports:
+      - "9093:9093"
+    environment:
+      <<: *kafka-env
+      KAFKA_BROKER_ID: 2
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-2:29092,EXTERNAL://${KAFKA_HOST:?Definir KAFKA_HOST en .env}:9093
+    volumes:
+      - kafka-2-data:/var/lib/kafka/data
+
+  kafka-3:
+    <<: *kafka
+    hostname: kafka-3
+    container_name: kafka-3
+    ports:
+      - "9094:9094"
+    environment:
+      <<: *kafka-env
+      KAFKA_BROKER_ID: 3
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-3:29092,EXTERNAL://${KAFKA_HOST:?Definir KAFKA_HOST en .env}:9094
+    volumes:
+      - kafka-3-data:/var/lib/kafka/data
+
+# Red con nombre fijo: el compose de Kafka UI se une a ella.
+networks:
+  default:
+    name: timetogame-kafka
+
+volumes:
+  zookeeper-1-data:
+  zookeeper-1-log:
+  zookeeper-2-data:
+  zookeeper-2-log:
+  zookeeper-3-data:
+  zookeeper-3-log:
+  kafka-1-data:
+  kafka-2-data:
+  kafka-3-data:

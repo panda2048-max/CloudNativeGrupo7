@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.Timetogame.dto.GeneroDTO;
 import com.example.Timetogame.dto.VideojuegoDTO;
+import com.example.Timetogame.service.ActividadService;
 import com.example.Timetogame.service.GeneroService;
 import com.example.Timetogame.service.VideojuegoService;
 
@@ -22,15 +23,19 @@ public class PublicCatalogController {
 
     private final VideojuegoService videojuegoService;
     private final GeneroService generoService;
+    private final ActividadService actividadService;
 
     @GetMapping("/videojuegos")
     public ResponseEntity<List<VideojuegoDTO>> findAllVideojuegos() {
         return ResponseEntity.ok(videojuegoService.findAll());
     }
 
+    /** Abrir la ficha cuenta como una vista (evento de actividad para Kafka). */
     @GetMapping("/videojuegos/{id}")
     public ResponseEntity<VideojuegoDTO> findVideojuegoById(@PathVariable Long id) {
-        return ResponseEntity.ok(videojuegoService.findById(id));
+        VideojuegoDTO videojuego = videojuegoService.findById(id);
+        actividadService.registrarVista(videojuego);
+        return ResponseEntity.ok(videojuego);
     }
 
     @GetMapping("/generos")

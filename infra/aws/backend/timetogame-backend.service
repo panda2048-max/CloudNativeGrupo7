@@ -1,5 +1,5 @@
 # /etc/systemd/system/timetogame-backend.service
-# Reemplazar <ENDPOINT_RDS> y <ORIGEN_FRONTEND>. Los secretos van en
+# Reemplazar <ENDPOINT_RDS>, <ORIGEN_FRONTEND> y <KAFKA_BOOTSTRAP>. Los secretos van en
 # /etc/timetogame/*.env (solo root), los crea setup-backend.sh.
 [Unit]
 Description=TimeToGame backend (Spring Boot)
@@ -24,6 +24,9 @@ Environment=CORS_ALLOWED_ORIGIN=<ORIGEN_FRONTEND>
 
 # Cluster RabbitMQ local (docker-compose, 2 nodos).
 Environment=RABBITMQ_ADDRESSES=localhost:5672,localhost:5673
+
+# Cluster Kafka (EC2 aparte, IP privada).
+Environment=KAFKA_BOOTSTRAP_SERVERS=<KAFKA_BOOTSTRAP>
 
 # DB_USERNAME / DB_PASSWORD
 EnvironmentFile=/etc/timetogame/backend.env
