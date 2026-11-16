@@ -1,0 +1,34 @@
+# /etc/systemd/system/timetogame-backend.service
+# Reemplazar <ENDPOINT_RDS> y <ORIGEN_FRONTEND>. Los secretos van en
+# /etc/timetogame/*.env (solo root), los crea setup-backend.sh.
+[Unit]
+Description=TimeToGame backend (Spring Boot)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/timetogame-backend
+ExecStart=/usr/bin/java -Xms128m -Xmx384m -jar target/Timetogame-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=5
+
+Environment=DB_URL=jdbc:mysql://<ENDPOINT_RDS>:3306/timetogame?createDatabaseIfNotExist=true
+
+# Microsoft Entra ID (Azure AD): no cambian entre cuentas de AWS.
+Environment=OIDC_ISSUER_URI=https://login.microsoftonline.com/e199e31e-ed32-476b-983e-152fa84d6507/v2.0
+Environment=OIDC_AUDIENCE=3aea2387-eabd-41de-87da-1503cf447475
+
+Environment=CORS_ALLOWED_ORIGIN=<ORIGEN_FRONTEND>
+
+# Cluster RabbitMQ local (docker-compose, 2 nodos).
+Environment=RABBITMQ_ADDRESSES=localhost:5672,localhost:5673
+
+# DB_USERNAME / DB_PASSWORD
+EnvironmentFile=/etc/timetogame/backend.env
+# RABBITMQ_USERNAME / RABBITMQ_PASSWORD
+EnvironmentFile=/etc/timetogame/rabbitmq-backend.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+# /etc/systemd/system/timetogame-rabbitmq-admin.service
+# Reemplazar <ORIGEN_FRONTEND>.
+[Unit]
+Description=TimeToGame RabbitMQ admin (Spring Boot)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/timetogame-rabbitmq-admin
+ExecStart=/usr/bin/java -Xms96m -Xmx256m -jar target/timetogame-rabbitmq-admin-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=5
+
+Environment=SERVER_PORT=8001
+Environment=OIDC_ISSUER_URI=https://login.microsoftonline.com/e199e31e-ed32-476b-983e-152fa84d6507/v2.0
+Environment=OIDC_AUDIENCE=3aea2387-eabd-41de-87da-1503cf447475
+Environment=CORS_ALLOWED_ORIGIN=<ORIGEN_FRONTEND>
+Environment=RABBITMQ_ADDRESSES=localhost:5672,localhost:5673
+Environment=RABBITMQ_MANAGEMENT_URLS=http://localhost:15672,http://localhost:15673
+Environment=LOG_DIR=/home/ubuntu/app/timetogame-rabbitmq-admin/logs
+# RABBITMQ_USERNAME / RABBITMQ_PASSWORD
+EnvironmentFile=/etc/timetogame/rabbitmq-admin.env
+
+[Install]
+WantedBy=multi-user.target
