@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { fetchPublicVideojuego } from "../api/videojuegosApi";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { StatusMessage } from "../components/StatusMessage";
+import { ResenasSection } from "./catalogo/ResenasSection";
 
 export function VideojuegoDetallePage() {
   const { id } = useParams();
@@ -52,6 +53,8 @@ export function VideojuegoDetallePage() {
           <p>Lanzamiento: {videojuego.fechaLanzamiento ?? "sin definir"}</p>
         </article>
       )}
+
+      {videojuego && <ResenasSection videojuegoId={videojuego.id} />}
     </section>
   );
 }

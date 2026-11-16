@@ -305,10 +305,12 @@ al navegador por **Server-Sent Events**, sin recargar ni consultar cada X
 segundos.
 
 ```
-GET /api/public/videojuegos/{id} ─> ActividadService ─ publishEvent ─> ActividadProducer (@Async)
-   ─(VideojuegoVistoEvent, key=videojuegoId)─> [timetogame.actividad]  3 particiones x 3 replicas
+GET /api/public/videojuegos/{id} (VISTA)  y  POST /api/videojuegos/{id}/resenas (RESENA)
+   ─ publishEvent ─> ActividadProducer (@Async, tras el commit)
+   ─(ActividadEvent, key=videojuegoId)─> [timetogame.actividad]  3 particiones x 3 replicas
         ├─ group "tendencias" (3 hilos, 1 por particion) ─> TendenciasService ─> SSE /api/public/stream/tendencias
-        └─ group "historial"                             ─> HistorialService  ─> tabla historial_vistas
+        ├─ group "historial"                             ─> HistorialService  ─> tabla historial_vistas
+        └─ group "resenas-live"   (solo tipo RESENA)     ─> SSE "resena" (Resenas recientes en la portada)
 
 Alta/edicion/baja de videojuego ─ CatalogoEvent (el mismo de RabbitMQ) ─> CatalogoCambioProducer (AFTER_COMMIT)
    ─(CatalogoCambioEvent, key=videojuegoId)─> [timetogame.catalogo.cambios]  compactado, 3 x 3
@@ -317,6 +319,19 @@ Alta/edicion/baja de videojuego ─ CatalogoEvent (el mismo de RabbitMQ) ─> Ca
 
 Error no recuperable o 3 reintentos (1 s, 2 s, 4 s) agotados ─> <topico>.DLT (misma particion)
 ```
+
+### Resenas en vivo
+
+En la ficha de un juego, un usuario con sesion publica una resena (1 a 5
+estrellas + comentario): `POST /api/videojuegos/{id}/resenas` la guarda en la
+tabla `resenas` y, tras el commit, la publica en el mismo topico
+`timetogame.actividad` con `tipo = RESENA`. El consumer group
+`resenas-live` toma solo ese tipo y la empuja por SSE a la portada
+("Resenas recientes"); `tendencias` e `historial` la ignoran porque solo
+procesan `VISTA`. Un solo topico para toda la actividad del usuario: cada
+grupo filtra lo que le interesa. Un evento cuyo tipo no coincide con sus datos
+(una resena sin comentario, una vista con calificacion) no pasa la validacion
+y va al DLT.
 
 ### Topicos y por que cada parametro
 
@@ -349,7 +364,7 @@ Error no recuperable o 3 reintentos (1 s, 2 s, 4 s) agotados ─> <topico>.DLT (
 | Topicos en codigo (`NewTopic`/`TopicBuilder`) | `config.KafkaTopicConfig` |
 | Errores: `DefaultErrorHandler` + backoff exponencial + `DeadLetterPublishingRecoverer` | `config.KafkaConfig` |
 | Cliente (bootstrap, serializers, `acks=all`, `retries`, idempotencia, `group-id` por listener) | `application.properties` (`spring.kafka.*`) |
-| Eventos tipados (DTO) | `event.VideojuegoVistoEvent`, `event.CatalogoCambioEvent` |
+| Eventos tipados (DTO) | `event.ActividadEvent` (tipo VISTA o RESENA), `event.CatalogoCambioEvent` |
 | Productores (`KafkaTemplate`, `JacksonJsonSerializer`) | `producer.ActividadProducer`, `producer.CatalogoCambioProducer` |
 | Consumidores (`@KafkaListener` que delega en un service) | `consumer.tendencias`, `consumer.historial`, `consumer.catalogo` |
 | SSE | `sse.StreamHub`, `controller.StreamController` |

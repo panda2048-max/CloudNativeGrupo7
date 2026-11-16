@@ -5,14 +5,15 @@ package com.example.Timetogame.streaming.config;
  *
  * <pre>
  * timetogame.actividad          (key = videojuegoId, delete, 7 dias)
- *   ActividadProducer --VideojuegoVistoEvent--> [3 particiones x 3 replicas]
- *       group "tendencias" (3 hilos, 1 por particion) -> TendenciasService -> SSE /api/public/stream/tendencias
- *       group "historial"                             -> HistorialService  -> tabla historial_vistas
+ *   ActividadProducer --ActividadEvent (tipo VISTA | RESENA)--> [3 particiones x 3 replicas]
+ *       group "tendencias" (3 hilos, 1 por particion) VISTA  -> TendenciasService   -> SSE "tendencias"
+ *       group "historial"                             VISTA  -> HistorialService    -> tabla historial_vistas
+ *       group "resenas-live"                          RESENA -> AvisosEnVivoService -> SSE "resena"
  *
  * timetogame.catalogo.cambios   (key = videojuegoId, compact: queda el ultimo estado de cada juego)
  *   CatalogoCambioProducer --CatalogoCambioEvent--> [3 particiones x 3 replicas]
- *       group "tendencias"    -> TendenciasService (titulo nuevo / saca del ranking al eliminado)
- *       group "catalogo-live" -> StreamService     -> SSE (aviso en vivo del cambio)
+ *       group "tendencias"    -> TendenciasService   (titulo nuevo / saca del ranking al eliminado)
+ *       group "catalogo-live" -> AvisosEnVivoService -> SSE "catalogo"
  *
  * Error no recuperable o reintentos agotados -> &lt;topico&gt;.DLT (misma particion)
  * </pre>
@@ -32,6 +33,8 @@ public final class TopologiaKafka {
     /** Grupo distinto: recibe TODOS los eventos de actividad, independiente de tendencias. */
     public static final String GRUPO_HISTORIAL = "historial";
     public static final String GRUPO_CATALOGO_LIVE = "catalogo-live";
+    /** Toma solo las resenas del topico de actividad y las avisa en vivo. */
+    public static final String GRUPO_RESENAS_LIVE = "resenas-live";
 
     private TopologiaKafka() {
     }

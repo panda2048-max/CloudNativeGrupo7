@@ -14,6 +14,7 @@ import com.example.Timetogame.event.EntidadCatalogo;
 import com.example.Timetogame.event.TipoEventoCatalogo;
 import com.example.Timetogame.exception.ResourceNotFoundException;
 import com.example.Timetogame.repository.GeneroRepository;
+import com.example.Timetogame.repository.ResenaRepository;
 import com.example.Timetogame.repository.VideojuegoRepository;
 import com.example.Timetogame.security.UsuarioActualProvider;
 import com.example.Timetogame.service.VideojuegoService;
@@ -27,6 +28,7 @@ public class VideojuegoServiceImpl implements VideojuegoService {
 
     private final VideojuegoRepository videojuegoRepository;
     private final GeneroRepository generoRepository;
+    private final ResenaRepository resenaRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final UsuarioActualProvider usuarioActualProvider;
 
@@ -88,6 +90,8 @@ public class VideojuegoServiceImpl implements VideojuegoService {
     @Override
     public void delete(Long id) {
         Videojuego videojuego = buscarEntidad(id);
+        // Las resenas no tienen clave foranea: se borran en la misma transaccion.
+        resenaRepository.deleteByVideojuegoId(id);
         videojuegoRepository.delete(videojuego);
         publicarEvento(TipoEventoCatalogo.ELIMINADO, videojuego);
     }

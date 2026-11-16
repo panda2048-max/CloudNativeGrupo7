@@ -10,8 +10,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import com.example.Timetogame.streaming.event.OrigenVista;
-import com.example.Timetogame.streaming.event.VideojuegoVistoEvent;
+import com.example.Timetogame.streaming.event.OrigenActividad;
+import com.example.Timetogame.streaming.event.ActividadEvent;
+import com.example.Timetogame.streaming.event.TipoActividad;
 import com.example.Timetogame.streaming.exception.EventoInvalidoException;
 
 import jakarta.validation.Validation;
@@ -35,14 +36,14 @@ class EventoKafkaValidatorTest {
 
     @Test
     void aceptaUnEventoCompleto() {
-        VideojuegoVistoEvent evento = new VideojuegoVistoEvent("e-1", Instant.now(), 7L, "Halo", null,
-                OrigenVista.DETALLE);
+        ActividadEvent evento = new ActividadEvent("e-1", Instant.now(), TipoActividad.VISTA, 7L, "Halo", null,
+                OrigenActividad.DETALLE, null, null);
         assertThat(validator.validar(record(evento))).isSameAs(evento);
     }
 
     @Test
     void rechazaCamposFaltantesIndicandoLaUbicacion() {
-        VideojuegoVistoEvent invalido = new VideojuegoVistoEvent("", null, -1L, null, null, null);
+        ActividadEvent invalido = new ActividadEvent("", null, TipoActividad.VISTA, -1L, null, null, null, null, null);
 
         assertThatThrownBy(() -> validator.validar(record(invalido)))
                 .isInstanceOf(EventoInvalidoException.class)
@@ -56,7 +57,7 @@ class EventoKafkaValidatorTest {
         assertThatThrownBy(() -> validator.validar(record(null))).isInstanceOf(EventoInvalidoException.class);
     }
 
-    private static ConsumerRecord<String, VideojuegoVistoEvent> record(VideojuegoVistoEvent valor) {
+    private static ConsumerRecord<String, ActividadEvent> record(ActividadEvent valor) {
         return new ConsumerRecord<>("timetogame.actividad", 2, 41L, "7", valor);
     }
 }

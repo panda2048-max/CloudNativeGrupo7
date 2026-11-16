@@ -14,10 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.Timetogame.dto.CrearResenaRequest;
 import com.example.Timetogame.dto.FichaVideojuegoDTO;
+import com.example.Timetogame.dto.ResenaDTO;
 import com.example.Timetogame.dto.SolicitudFichaDTO;
 import com.example.Timetogame.dto.VideojuegoDTO;
 import com.example.Timetogame.service.FichaVideojuegoService;
+import com.example.Timetogame.service.ResenaService;
 import com.example.Timetogame.service.VideojuegoService;
 
 import jakarta.validation.Valid;
@@ -30,6 +33,7 @@ public class VideojuegoController {
 
     private final VideojuegoService videojuegoService;
     private final FichaVideojuegoService fichaService;
+    private final ResenaService resenaService;
 
     @GetMapping
     public ResponseEntity<List<VideojuegoDTO>> findAll(
@@ -60,6 +64,14 @@ public class VideojuegoController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         videojuegoService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Cualquier usuario con sesion (no solo ADMIN); el autor sale del token. */
+    @PostMapping("/{id}/resenas")
+    public ResponseEntity<ResenaDTO> crearResena(@PathVariable Long id,
+            @Valid @RequestBody CrearResenaRequest request) {
+        ResenaDTO creada = resenaService.crear(id, request);
+        return ResponseEntity.created(URI.create("/api/public/videojuegos/" + id + "/resenas")).body(creada);
     }
 
     @GetMapping("/{id}/ficha")

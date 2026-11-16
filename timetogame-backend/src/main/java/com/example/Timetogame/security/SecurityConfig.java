@@ -82,6 +82,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/mensajes-fallidos/**", "/api/streaming/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/videojuegos/**", "/api/generos/**").authenticated()
+                        // Publicar una resena: cualquier usuario con sesion (va antes de la regla ADMIN).
+                        .requestMatchers(HttpMethod.POST, "/api/videojuegos/*/resenas").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/videojuegos/**", "/api/generos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/videojuegos/**", "/api/generos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/videojuegos/**", "/api/generos/**").hasRole("ADMIN")

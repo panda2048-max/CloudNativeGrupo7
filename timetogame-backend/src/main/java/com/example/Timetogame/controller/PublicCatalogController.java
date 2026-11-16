@@ -9,9 +9,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.Timetogame.dto.GeneroDTO;
+import com.example.Timetogame.dto.ResumenResenasDTO;
 import com.example.Timetogame.dto.VideojuegoDTO;
 import com.example.Timetogame.service.ActividadService;
 import com.example.Timetogame.service.GeneroService;
+import com.example.Timetogame.service.ResenaService;
 import com.example.Timetogame.service.VideojuegoService;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class PublicCatalogController {
     private final VideojuegoService videojuegoService;
     private final GeneroService generoService;
     private final ActividadService actividadService;
+    private final ResenaService resenaService;
 
     @GetMapping("/videojuegos")
     public ResponseEntity<List<VideojuegoDTO>> findAllVideojuegos() {
@@ -36,6 +39,12 @@ public class PublicCatalogController {
         VideojuegoDTO videojuego = videojuegoService.findById(id);
         actividadService.registrarVista(videojuego);
         return ResponseEntity.ok(videojuego);
+    }
+
+    /** Promedio, total y ultimas resenas de un videojuego (publico, como el catalogo). */
+    @GetMapping("/videojuegos/{id}/resenas")
+    public ResponseEntity<ResumenResenasDTO> findResenas(@PathVariable Long id) {
+        return ResponseEntity.ok(resenaService.resumenDe(id));
     }
 
     @GetMapping("/generos")

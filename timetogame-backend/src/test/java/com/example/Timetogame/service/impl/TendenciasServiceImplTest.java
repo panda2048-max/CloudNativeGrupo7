@@ -12,8 +12,9 @@ import com.example.Timetogame.dto.TendenciaDTO;
 import com.example.Timetogame.event.TipoEventoCatalogo;
 import com.example.Timetogame.streaming.config.StreamingProperties;
 import com.example.Timetogame.streaming.event.CatalogoCambioEvent;
-import com.example.Timetogame.streaming.event.OrigenVista;
-import com.example.Timetogame.streaming.event.VideojuegoVistoEvent;
+import com.example.Timetogame.streaming.event.OrigenActividad;
+import com.example.Timetogame.streaming.event.ActividadEvent;
+import com.example.Timetogame.streaming.event.TipoActividad;
 
 class TendenciasServiceImplTest {
 
@@ -33,7 +34,7 @@ class TendenciasServiceImplTest {
 
     @Test
     void noCuentaDosVecesLaMismaEntrega() {
-        VideojuegoVistoEvent vista = vista(1L, "Halo", Instant.now());
+        ActividadEvent vista = vista(1L, "Halo", Instant.now());
 
         assertThat(service.registrarVista(vista)).isTrue();
         assertThat(service.registrarVista(vista)).isFalse();
@@ -74,8 +75,9 @@ class TendenciasServiceImplTest {
         }
     }
 
-    private static VideojuegoVistoEvent vista(Long id, String titulo, Instant cuando) {
-        return new VideojuegoVistoEvent(UUID.randomUUID().toString(), cuando, id, titulo, "ana", OrigenVista.DETALLE);
+    private static ActividadEvent vista(Long id, String titulo, Instant cuando) {
+        return new ActividadEvent(UUID.randomUUID().toString(), cuando, TipoActividad.VISTA, id, titulo, "ana",
+                OrigenActividad.DETALLE, null, null);
     }
 
     private static CatalogoCambioEvent cambio(Long id, String titulo, TipoEventoCatalogo tipo) {

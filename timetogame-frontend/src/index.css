@@ -462,3 +462,50 @@ button:disabled {
   color: var(--primary);
   border-bottom-color: var(--primary);
 }
+
+/* ---- Resenas ---- */
+.estrellas {
+  color: #d99a00;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.estrellas__vacias {
+  color: var(--border);
+}
+
+.resenas {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.resenas li {
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.resenas p {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Una resena recien llegada por SSE se resalta un momento. */
+.resenas__nueva {
+  animation: resena-nueva 2.5s ease-out;
+}
+
+@keyframes resena-nueva {
+  from {
+    background: var(--success-bg);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resenas__nueva {
+    animation: none;
+  }
+}

@@ -11,8 +11,9 @@ import com.example.Timetogame.entity.HistorialVista;
 import com.example.Timetogame.repository.HistorialVistaRepository;
 import com.example.Timetogame.security.UsuarioActualProvider;
 import com.example.Timetogame.service.HistorialService;
-import com.example.Timetogame.streaming.event.OrigenVista;
-import com.example.Timetogame.streaming.event.VideojuegoVistoEvent;
+import com.example.Timetogame.streaming.event.OrigenActividad;
+import com.example.Timetogame.streaming.event.ActividadEvent;
+import com.example.Timetogame.streaming.event.TipoActividad;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,8 +26,10 @@ public class HistorialServiceImpl implements HistorialService {
     private final UsuarioActualProvider usuarioActualProvider;
 
     @Override
-    public boolean registrar(VideojuegoVistoEvent evento) {
-        if (evento.usuario() == null || evento.origen() == OrigenVista.SIMULACION) {
+    public boolean registrar(ActividadEvent evento) {
+        // Solo vistas reales de usuarios con sesion (no resenas, visitantes ni simulacion).
+        if (evento.tipo() != TipoActividad.VISTA || evento.usuario() == null
+                || evento.origen() == OrigenActividad.SIMULACION) {
             return false;
         }
         if (repository.existsByEventId(evento.eventId())) {

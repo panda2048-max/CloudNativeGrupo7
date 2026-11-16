@@ -14,8 +14,8 @@ import com.example.Timetogame.exception.ResourceNotFoundException;
 import com.example.Timetogame.security.UsuarioActualProvider;
 import com.example.Timetogame.service.ActividadService;
 import com.example.Timetogame.service.VideojuegoService;
-import com.example.Timetogame.streaming.event.OrigenVista;
-import com.example.Timetogame.streaming.event.VideojuegoVistoEvent;
+import com.example.Timetogame.streaming.event.OrigenActividad;
+import com.example.Timetogame.streaming.event.ActividadEvent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,8 +35,8 @@ public class ActividadServiceImpl implements ActividadService {
 
     @Override
     public void registrarVista(VideojuegoDTO videojuego) {
-        eventPublisher.publishEvent(VideojuegoVistoEvent.de(videojuego.id(), videojuego.titulo(),
-                usuarioActualProvider.usuarioActual(), OrigenVista.DETALLE));
+        eventPublisher.publishEvent(ActividadEvent.vista(videojuego.id(), videojuego.titulo(),
+                usuarioActualProvider.usuarioActual(), OrigenActividad.DETALLE));
     }
 
     @Override
@@ -50,8 +50,8 @@ public class ActividadServiceImpl implements ActividadService {
         Map<String, Integer> porVideojuego = new LinkedHashMap<>();
         for (int i = 0; i < cantidad; i++) {
             VideojuegoDTO elegido = videojuegos.get(elegir(pesosAcumulados));
-            eventPublisher.publishEvent(VideojuegoVistoEvent.de(elegido.id(), elegido.titulo(), USUARIO_SIMULADOR,
-                    OrigenVista.SIMULACION));
+            eventPublisher.publishEvent(ActividadEvent.vista(elegido.id(), elegido.titulo(), USUARIO_SIMULADOR,
+                    OrigenActividad.SIMULACION));
             porVideojuego.merge(elegido.titulo(), 1, Integer::sum);
         }
         return new SimulacionDTO(cantidad, porVideojuego);

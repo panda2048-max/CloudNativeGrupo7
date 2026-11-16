@@ -9,19 +9,21 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.example.Timetogame.service.ResenaService;
 import com.example.Timetogame.service.TendenciasService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Conexiones Server-Sent Events abiertas por los navegadores. Empuja dos
- * tipos de evento:
+ * Conexiones Server-Sent Events abiertas por los navegadores. Tipos de evento:
  * <ul>
  *   <li>{@code tendencias}: el ranking completo, como maximo una vez por
  *       segundo y solo si cambio (una rafaga de 5.000 vistas no genera 5.000
  *       mensajes al navegador).</li>
  *   <li>{@code catalogo}: un aviso por cada cambio del catalogo.</li>
+ *   <li>{@code resenas}: las ultimas resenas (solo al conectarse) y
+ *       {@code resena}: cada resena nueva, apenas se publica.</li>
  * </ul>
  * Un comentario cada 15 s mantiene viva la conexion a traves de proxies.
  */
@@ -33,6 +35,7 @@ public class StreamHub {
     private static final Duration DURACION_CONEXION = Duration.ofMinutes(30);
 
     private final TendenciasService tendenciasService;
+    private final ResenaService resenaService;
     private final List<SseEmitter> emisores = new CopyOnWriteArrayList<>();
 
     public SseEmitter suscribir() {
@@ -43,6 +46,7 @@ public class StreamHub {
         emisores.add(emisor);
         // El navegador recibe el estado actual al conectarse, sin esperar el proximo cambio.
         enviarA(emisor, SseEmitter.event().name("tendencias").data(tendenciasService.ranking()));
+        enviarA(emisor, SseEmitter.event().name("resenas").data(resenaService.recientes()));
         return emisor;
     }
 

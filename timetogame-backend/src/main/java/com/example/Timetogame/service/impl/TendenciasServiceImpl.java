@@ -19,7 +19,7 @@ import com.example.Timetogame.event.TipoEventoCatalogo;
 import com.example.Timetogame.service.TendenciasService;
 import com.example.Timetogame.streaming.config.StreamingProperties;
 import com.example.Timetogame.streaming.event.CatalogoCambioEvent;
-import com.example.Timetogame.streaming.event.VideojuegoVistoEvent;
+import com.example.Timetogame.streaming.event.ActividadEvent;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,7 +55,7 @@ public class TendenciasServiceImpl implements TendenciasService {
     }
 
     @Override
-    public boolean registrarVista(VideojuegoVistoEvent evento) {
+    public boolean registrarVista(ActividadEvent evento) {
         simularCostoDeProcesamiento();
 
         long minuto = minutoDe(evento.ocurridoEn());

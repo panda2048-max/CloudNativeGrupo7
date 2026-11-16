@@ -11,7 +11,7 @@ set -euo pipefail
 
 : "${IP_ELASTICA:?Definir IP_ELASTICA}"
 : "${IP_BACKEND:?Definir IP_BACKEND (IP elastica del backend, para el proxy SSE)}"
-: "${CORREO:?Definir CORREO (avisos de vencimiento de Let's Encrypt)}"
+: "${CORREO:?Definir CORREO (avisos de vencimiento del certificado)}"
 DOMINIO="$IP_ELASTICA.nip.io"
 
 sudo apt-get update -qq

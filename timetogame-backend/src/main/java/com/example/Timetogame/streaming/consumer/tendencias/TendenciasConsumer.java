@@ -8,7 +8,8 @@ import com.example.Timetogame.service.TendenciasService;
 import com.example.Timetogame.streaming.config.TopologiaKafka;
 import com.example.Timetogame.streaming.consumer.EventoKafkaValidator;
 import com.example.Timetogame.streaming.event.CatalogoCambioEvent;
-import com.example.Timetogame.streaming.event.VideojuegoVistoEvent;
+import com.example.Timetogame.streaming.event.TipoActividad;
+import com.example.Timetogame.streaming.event.ActividadEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +31,13 @@ public class TendenciasConsumer {
     @KafkaListener(id = "tendencias-actividad", topics = TopologiaKafka.ACTIVIDAD,
             groupId = TopologiaKafka.GRUPO_TENDENCIAS,
             concurrency = "${app.kafka.tendencias.consumidores:3}",
-            properties = "spring.json.value.default.type=com.example.Timetogame.streaming.event.VideojuegoVistoEvent")
-    public void onVista(ConsumerRecord<String, VideojuegoVistoEvent> record) {
-        VideojuegoVistoEvent evento = validator.validar(record);
+            properties = "spring.json.value.default.type=com.example.Timetogame.streaming.event.ActividadEvent")
+    public void onActividad(ConsumerRecord<String, ActividadEvent> record) {
+        ActividadEvent evento = validator.validar(record);
+        // El ranking es de vistas: las resenas las toma el grupo "resenas-live".
+        if (evento.tipo() != TipoActividad.VISTA) {
+            return;
+        }
         if (!tendenciasService.registrarVista(evento)) {
             log.debug("Vista {} ignorada (duplicada o fuera de la ventana): {}", evento.eventId(),
                     EventoKafkaValidator.ubicacion(record));

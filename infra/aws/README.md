@@ -5,16 +5,18 @@ otra cuenta (por ejemplo, un nuevo modulo de AWS Academy). Aqui no hay
 secretos: las contrasenas viven solo en las EC2 (`/etc/timetogame`,
 `infra/rabbitmq/.env`) y en el respaldo local fuera del repo.
 
-## Inventario actual (cuenta original, us-east-1)
+## Inventario actual (cuenta nueva, us-east-1, desde 2026-11-16)
 
 | Recurso | Configuracion |
 |---|---|
-| EC2 backend | `t3.small` (2 vCPU, 2 GB), Ubuntu 26.04 LTS (`ami-0b6d9d3d33ba97d99`), 8 GB de disco, `us-east-1b`, SG `launch-wizard-1`, IP elastica `52.4.101.123`. Corre backend (:8000), admin (:8001) y el cluster RabbitMQ en Docker (solo `127.0.0.1`) |
-| EC2 frontend | `t3.micro`, Ubuntu 26.04 LTS (misma AMI), 8 GB, `us-east-1b`, SG `launch-wizard-2`, Nginx + Let's Encrypt, IP elastica `54.234.201.101`, dominio `54.234.201.101.nip.io` |
-| RDS | MySQL 8.4.9, `db.t3.micro`, 20 GB gp3, identificador `database-1`, usuario maestro `timetogame`, base `timetogame`, **sin acceso publico**, misma VPC que el backend (`vpc-01e86485831b168ff`, la por defecto) |
-| API Gateway | HTTP API `7rqni1tm5d`, stage `$default` con auto-deploy, **sin CORS propio** |
-| Llave SSH | Par de llaves `cloudkey` (`cloudkey.pem`) |
-| EC2 Kafka (nueva, EP5/EP6) | `t3.large` recomendado (8 GB; minimo `t3.medium` + swap), Ubuntu 26.04, 16 GB de disco. Corre 3 Zookeeper + 3 brokers + Kafka UI en Docker (`infra/kafka`, `infra/kafka-ui`) |
+| EC2 frontend | `t3.micro`, Ubuntu 26.04, 8 GB, SG `frontend-sg`, IP elastica `184.196.1.29`, dominio `184.196.1.29.nip.io` (Nginx + Let's Encrypt + proxy SSE) |
+| EC2 backend | `t3.small`, Ubuntu 26.04, 12 GB, SG `backend-sg`, IP elastica `13.219.27.18`, IP privada `172.31.39.47`. Backend :8000, admin :8001 y cluster RabbitMQ (2 nodos en Docker) |
+| EC2 Kafka | `t3.medium`, Ubuntu 26.04, 16 GB, IP publica `54.86.165.233` (cambia al reiniciar; no tiene elastica), IP privada `172.31.32.167`. 3 Zookeeper + 3 brokers + Kafka UI en Docker |
+| RDS | MySQL 8.4, `db.t3.micro`, identificador `timetogame-db`, endpoint `timetogame-db.cbhjyw2lxeyt.us-east-1.rds.amazonaws.com`, usuario `timetogame`, sin acceso publico |
+| API Gateway | HTTP API `8zd4y157lb` (`https://8zd4y157lb.execute-api.us-east-1.amazonaws.com`), stage `$default` con auto-deploy, sin CORS propio |
+| Llave SSH | `cloudkey.pem` |
+
+La cuenta original (backend `52.4.101.123`, frontend `54.234.201.101`, API `7rqni1tm5d`) quedo sin uso.
 
 ### Security Groups
 

@@ -4,7 +4,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import com.example.Timetogame.service.AvisosCatalogoService;
+import com.example.Timetogame.service.AvisosEnVivoService;
 import com.example.Timetogame.streaming.config.TopologiaKafka;
 import com.example.Timetogame.streaming.consumer.EventoKafkaValidator;
 import com.example.Timetogame.streaming.event.CatalogoCambioEvent;
@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CatalogoLiveConsumer {
 
     private final EventoKafkaValidator validator;
-    private final AvisosCatalogoService avisosCatalogoService;
+    private final AvisosEnVivoService avisosEnVivoService;
 
     @KafkaListener(id = "catalogo-live", topics = TopologiaKafka.CATALOGO_CAMBIOS,
             groupId = TopologiaKafka.GRUPO_CATALOGO_LIVE,
@@ -32,7 +32,7 @@ public class CatalogoLiveConsumer {
                     "auto.offset.reset=latest"})
     public void onCambioCatalogo(ConsumerRecord<String, CatalogoCambioEvent> record) {
         CatalogoCambioEvent evento = validator.validar(record);
-        avisosCatalogoService.notificarCambio(evento);
+        avisosEnVivoService.notificarCambio(evento);
         log.info("Aviso en vivo: {} videojuego {} ({})", evento.tipo(), evento.videojuegoId(),
                 EventoKafkaValidator.ubicacion(record));
     }
